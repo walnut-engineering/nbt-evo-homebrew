@@ -54,6 +54,21 @@ descriptor.
 
 <sub>Press a tile and a short “Starting…” splash shows while the app takes the screen; iDrive **BACK** returns you here.</sub>
 
+## Install the prebuilt binaries
+
+Don't want to cross-compile? The [**latest release**](../../releases/latest) ships
+prebuilt ARM/QNX binaries for all five tiles plus an on-unit installer. On the unit
+(a root shell, or run it straight off a USB stick — it mounts as `/fs/sda1`):
+
+```sh
+sh install.sh                # stage the launcher + apps into /fs/sda1/evo (no system changes)
+sh install.sh --enable-knob  # also turn on iDrive-knob input + boot autostart, then reboot
+```
+
+The release's `INSTALL.md` covers the fail-safe `most` shim and how to uninstall.
+Game data is still yours to supply (`doom1.wad`, Quake's `pak0.pk3`). Prefer to
+build it all from source? Read on.
+
 ## How an app reaches the screen
 
 Every app links the shared **`evo_graphics_lib`** — a software compositor over
