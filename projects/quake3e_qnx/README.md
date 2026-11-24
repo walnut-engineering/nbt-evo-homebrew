@@ -1,4 +1,4 @@
-# quake3e on the NBT EVO (QNX 6.5 / PowerVR SGX544MP) — port in progress
+# quake3e on the NBT EVO (QNX 6.5 / PowerVR SGX544MP)
 
 Goal: run **Quake 3** on the head unit as a launcher tile, using the real GPU.
 Base: **quake3e** (ec-/Quake3e), renderer **renderer2** ported to **OpenGL ES 2.0**,
@@ -254,10 +254,11 @@ here rather than at `dlopen` on the unit (that caught `ui_sppostgame.c`).
 
 Deploy the three `.so` into the active game dir (`demoq3/`) alongside the demo pak.
 
-Status: M0–M5a done. The full client boots to the **Quake 3 main menu on the unit's
-GPU**: native `uiarm.so` loads (`VM_LoadDll(ui) succeeded!`), the renderer2 draws it on
-the PowerVR (75 GLSL shaders, `finished R_Init`), and startup reaches
-`--- Common Initialization Complete ---` — no demo-VM ABI wall on either client or
-server. Remaining (M5b): make it visible on the physical display (ILM-layer z-order vs
-the live HMI), wire iDrive input (`evo_appinput.h`/`evo_feed`) + QSA sound (SNDDMA_*
-stubbed), run a map, and package it as a launcher tile.
+Status: **complete and playable.** The full client runs on the unit's GPU — the
+native `uiarm.so` / `cgamearm.so` / `qagamearm.so` modules load, renderer2 draws
+on the PowerVR SGX544MP (75 GLSL shaders, `finished R_Init`), and the game is
+**visible over the live HMI** (own ILM layer), with **iDrive-knob input and QSA
+sound**, packaged as a **"Quake 3" launcher tile** (verified end-to-end: summon →
+launch → play with sound → BACK quits clean → HMI restored). `+devmap q3dm7` with
+bots renders at ~22 fps @1440×540. Supply the free Q3 demo `pak0.pk3` in
+`demoq3/`. The only open item is a cosmetic default-brightness tweak.

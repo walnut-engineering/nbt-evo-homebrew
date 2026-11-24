@@ -7,10 +7,17 @@ set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SRC="$HERE/../ioq3"
 REPO="${IOQ3_REPO:-https://github.com/ioquake/ioq3}"
+# Pinned to the exact upstream commit the ABI patches were built against (see
+# fetch.sh for the rationale). Override: IOQ3_COMMIT=<sha> ./fetch_ioq3.sh
+PIN="${IOQ3_COMMIT:-52088b9eae247d8e321c8dc1fb49a879652854f9}"
 
 if [ ! -d "$SRC/.git" ]; then
-  echo "cloning ioquake3 -> $SRC"
-  git clone --depth 1 "$REPO" "$SRC"
+  echo "cloning ioquake3 @ $PIN -> $SRC"
+  mkdir -p "$SRC"
+  git -C "$SRC" init -q
+  git -C "$SRC" remote add origin "$REPO" 2>/dev/null || true
+  git -C "$SRC" fetch -q --depth 1 origin "$PIN"
+  git -C "$SRC" checkout -q FETCH_HEAD
 else
   echo "ioquake3 already present at $SRC"
 fi
