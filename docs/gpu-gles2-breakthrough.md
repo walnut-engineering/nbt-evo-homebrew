@@ -1,8 +1,8 @@
 # Hardware OpenGL ES 2.0 WORKS — the real GPU path (2026-11-11)
 
 The year-old "dual-GPU" effort chased **2D HMI acceleration** (Vivante GAL
-`gco2D_*`, Cairo bridge) and never beat software — see [backend_matrix_results.md](./backend_matrix_results.md)
-and the Current-status banner in [README.md](./README.md). That remains dead.
+`gco2D_*`, Cairo bridge) and never beat software — that remains dead (see the
+status note in [README.md](./README.md)).
 
 **But real hardware 3D — direct OpenGL ES 2.0 on the PowerVR SGX544MP — works
 from a standalone process.** This is the path for 3D games (Quake 3). Proven by
