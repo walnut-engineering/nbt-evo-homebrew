@@ -1,0 +1,5 @@
+build/
+# proprietary unit libraries — never commit/redistribute (see NOTICE)
+dsi_sdk/lib/
+# proprietary unit libraries pulled for linking — never commit
+linklibs/

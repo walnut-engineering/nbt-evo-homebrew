@@ -1,0 +1,6 @@
+# app.desc - registers this project as a launcher tile.
+name    = Terminal
+exec    = evo_terminal
+icon    = terminal.rgba
+order   = 20
+enabled = 1

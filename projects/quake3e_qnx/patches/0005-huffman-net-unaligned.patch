@@ -1,0 +1,21 @@
+diff --git a/code/qcommon/huffman_static.c b/code/qcommon/huffman_static.c
+index ba73da1..a9e53d3 100644
+--- a/code/qcommon/huffman_static.c
++++ b/code/qcommon/huffman_static.c
+@@ -202,8 +202,14 @@ int HuffmanGetBit( const byte* buffer, int bitIndex )
+ 
+ int HuffmanGetSymbol( unsigned int* symbol, const byte* buffer, int bitIndex )
+ {
+-	const uint16_t code = ((*(const uint32_t*)(buffer + (bitIndex >> 3))) >> ((uint32_t)bitIndex & 7)) & 0x7FF;
+-	const uint16_t entry = HuffmanDecoderTable[ code ];
++	/* buffer+(bitIndex>>3) is an arbitrary byte offset, so the 32-bit read is
++	 * unaligned - fatal on the NBT EVO (QNX/ARM enforces strict alignment,
++	 * SIGBUS fltno=5). Read the 4 bytes via memcpy instead of a uint32_t cast. */
++	uint32_t raw;
++	uint16_t code, entry;
++	memcpy( &raw, buffer + (bitIndex >> 3), sizeof( raw ) );
++	code = (uint16_t)( ( raw >> ( (uint32_t)bitIndex & 7 ) ) & 0x7FF );
++	entry = HuffmanDecoderTable[ code ];
+ 
+ 	*symbol = (unsigned int)(entry & 0xFF);
+ 

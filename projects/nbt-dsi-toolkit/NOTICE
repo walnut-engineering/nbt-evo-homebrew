@@ -1,0 +1,24 @@
+NBT DSI Toolkit — licensing / redistribution notice
+====================================================
+
+Original work in this toolkit (the C tools under src/, the Python decoders under
+scripts/, the docs, and the Makefile) is the author's own and may be shared freely.
+
+PROPRIETARY COMPONENTS — DO NOT REDISTRIBUTE
+--------------------------------------------
+dsi_sdk/lib/*.so.*        Runtime/link libraries extracted from a BMW NBT head unit.
+dsi_sdk/lib/servicebroker These are proprietary BMW / Harman binaries. They are required
+                          to BUILD and RUN the tools, but they already exist on every NBT
+                          unit — obtain them from YOUR OWN unit. They are excluded from
+                          version control (see .gitignore) and must not be published.
+
+dsi_sdk/include/          DSI SDK headers. These derive from the open-source DSIHarman
+                          "DSI" project; keep its upstream license with any redistribution.
+
+captures/*.pcap, service_map.txt
+                          Wire captures / service listings from a unit. They contain only
+                          internal service names + per-boot IDs (no personal data), but
+                          treat them as your own hardware's data.
+
+If you publish a fork, ship source + headers + docs only; let users supply the
+proprietary libraries from their own head unit.

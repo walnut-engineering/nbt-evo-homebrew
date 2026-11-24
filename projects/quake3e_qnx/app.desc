@@ -1,0 +1,11 @@
+# app.desc - registers Quake 3 (quake3e) as a launcher tile.
+# The engine + game data have their own build/deploy (build_client.sh +
+# build_game.sh -> /fs/sda1/evo/q3/), so build/deploy here only ship the launch
+# script + icon. The script carries the GPU + QSA-audio launch env.
+name    = Quake 3
+exec    = q3_launch.sh
+icon    = quake.rgba
+order   = 15
+enabled = 1
+build   =
+deploy  = target/q3_launch.sh

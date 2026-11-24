@@ -1,0 +1,57 @@
+diff --git a/code/unix/linux_signals.c b/code/unix/linux_signals.c
+index b37ced7..db45610 100644
+--- a/code/unix/linux_signals.c
++++ b/code/unix/linux_signals.c
+@@ -31,8 +31,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ #include "../qcommon/q_shared.h"
+ #include "../qcommon/qcommon.h"
+ #ifndef DEDICATED
++#ifdef __QNXNTO__
++// QNX uses GLES2 / our platform layer, not the gl1 renderer's tr_local.h
++// (which pulls in desktop-GL qgl.h). client.h is all this file needs (CL_Shutdown).
++#include "../client/client.h"
++#else
+ #include "../renderer/tr_local.h"
+ #endif
++#endif
+ 
+ static qboolean signalcaught = qfalse;
+ 
+diff --git a/code/unix/unix_main.c b/code/unix/unix_main.c
+index 1f30a13..5e39287 100644
+--- a/code/unix/unix_main.c
++++ b/code/unix/unix_main.c
+@@ -29,8 +29,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ #include <fcntl.h>
+ #include <stdarg.h>
+ #include <stdio.h>
+-#include <sys/ipc.h>
++#ifndef __QNXNTO__
++#include <sys/ipc.h>   // SysV IPC/shm: unused here, and QNX 6.5 has no <sys/shm.h>
+ #include <sys/shm.h>
++#endif
+ #include <sys/stat.h>
+ #include <string.h>
+ #include <ctype.h>
+diff --git a/code/unix/unix_shared.c b/code/unix/unix_shared.c
+index 7090352..34afcb5 100644
+--- a/code/unix/unix_shared.c
++++ b/code/unix/unix_shared.c
+@@ -393,8 +393,15 @@ const char *Sys_DefaultHomePath( void )
+ 
+ 	if ( *homePath )
+ 		return homePath;
+-            
+-	if ( (p = getenv("HOME")) != NULL ) 
++
++#ifdef __QNXNTO__
++	// On the NBT EVO, $HOME is /dev/shmem (a flat shared-memory namespace that
++	// rejects mkdir with ENOSYS), and there is no user home anyway. Return ""
++	// so FS_Startup uses fs_basepath as the (writable) home path.
++	return "";
++#endif
++
++	if ( (p = getenv("HOME")) != NULL )
+ 	{
+ 		Q_strncpyz( homePath, p, sizeof( homePath ) );
+ #ifdef MACOS_X

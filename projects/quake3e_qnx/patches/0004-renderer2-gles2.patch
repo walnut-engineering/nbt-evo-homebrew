@@ -1,0 +1,143 @@
+diff --git a/code/renderer2/qgl.h b/code/renderer2/qgl.h
+index 64b11ff..ed13303 100644
+--- a/code/renderer2/qgl.h
++++ b/code/renderer2/qgl.h
+@@ -26,7 +26,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ #ifndef __QGL_H__
+ #define __QGL_H__
+ 
+-#if defined( _WIN32 )
++#if defined( __QNXNTO__ )
++// NBT EVO (QNX 6.5 / PowerVR SGX544MP): OpenGL ES 2.0 via a GL2->GLES2 compat
++// shim. Provides the real GLES2 headers plus the desktop GL types/enums rend2
++// references that ES2 lacks. See projects/quake3e_qnx/qnx/qnx_gl2compat.h.
++#include "qnx_gl2compat.h"
++#elif defined( _WIN32 )
+ #if _MSC_VER
+ #pragma warning (disable: 4201)
+ #pragma warning (disable: 4214)
+@@ -119,7 +124,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ //===========================================================================
+ 
+ // renderer2 extensions
++#if !defined( __QNXNTO__ )
+ #include "glext.h"
++#endif
+ 
+ // GL function loader, based on https://gist.github.com/rygorous/16796a0c876cf8a5f542caddb55bce8a
+ // get missing functions from code/SDL2/include/SDL_opengl.h
+diff --git a/code/renderer2/tr_extensions.c b/code/renderer2/tr_extensions.c
+index ec4c878..43fa3f0 100644
+--- a/code/renderer2/tr_extensions.c
++++ b/code/renderer2/tr_extensions.c
+@@ -59,6 +59,17 @@ static qboolean GLimp_HaveExtension( const char *ext )
+ 	return ((*ptr == ' ') || (*ptr == '\0'));  // verify its complete string.
+ }
+ 
++#ifdef __QNXNTO__
++// NBT EVO: OpenGL ES 2.0 shims for the handful of desktop-GL entry points rend2
++// calls that ES2 renames or omits. ri.GL_GetProcAddress("glDepthRange"/...)
++// returns NULL on ES2, so after the loader runs we point those qgl* slots here.
++// These call the real ES2 symbols (linked directly from libGLESv2).
++static void APIENTRY QNX_DepthRange( GLclampd n, GLclampd f ) { glDepthRangef( (GLclampf)n, (GLclampf)f ); }
++static void APIENTRY QNX_ClearDepth( GLclampd d )            { glClearDepthf( (GLclampf)d ); }
++static void APIENTRY QNX_DrawBuffer( GLenum buf )            { (void)buf; }        // ES2 has a single draw buffer
++static void APIENTRY QNX_PolygonMode( GLenum f, GLenum m )   { (void)f; (void)m; } // ES2 has no glPolygonMode (no wireframe)
++#endif
++
+ 
+ void GLimp_InitExtraExtensions( void )
+ {
+@@ -320,6 +331,14 @@ void GLimp_InitExtraExtensions( void )
+ 	}
+ 
+ #undef GLE
++
++#ifdef __QNXNTO__
++	// The loader resolved the desktop-only procs to NULL on ES2; install shims.
++	qglDepthRange  = QNX_DepthRange;
++	qglClearDepth  = QNX_ClearDepth;
++	qglDrawBuffer  = QNX_DrawBuffer;
++	qglPolygonMode = QNX_PolygonMode;
++#endif
+ }
+ #ifdef _MSC_VER
+ #pragma warning (default : 4054 )
+diff --git a/code/renderer2/tr_glsl.c b/code/renderer2/tr_glsl.c
+index 182fde7..e11d163 100644
+--- a/code/renderer2/tr_glsl.c
++++ b/code/renderer2/tr_glsl.c
+@@ -240,6 +240,32 @@ static void GLSL_GetShaderHeader( GLenum shaderType, const GLchar *extra, char *
+ 
+ 	dest[0] = '\0';
+ 
++#ifdef __QNXNTO__
++	// NBT EVO (PowerVR SGX544MP): OpenGL ES 2.0 / GLSL ES 1.00. rend2's fallback
++	// shaders are authored with attribute/varying/gl_FragColor/texture2D, which
++	// *is* native GLSL ES 1.00 syntax - so, unlike the desktop >=1.30 path, we do
++	// NOT remap those keywords; we only prepend the version and the precision
++	// qualifiers that ES shaders require.
++	Q_strcat(dest, size, "#version 100\n");
++	if (shaderType == GL_FRAGMENT_SHADER)
++	{
++		Q_strcat(dest, size,
++			"#ifdef GL_FRAGMENT_PRECISION_HIGH\n"
++			"precision highp float;\n"
++			"precision highp int;\n"
++			"#else\n"
++			"precision mediump float;\n"
++			"precision mediump int;\n"
++			"#endif\n");
++	}
++	else
++	{
++		Q_strcat(dest, size,
++			"precision highp float;\n"
++			"precision highp int;\n");
++	}
++	Q_strcat(dest, size, "#define shadow2D(a,b) shadow2D(a,b).r\n");
++#else
+ 	// HACK: abuse the GLSL preprocessor to turn GLSL 1.20 shaders into 1.30 ones
+ 	if(glRefConfig.glslMajorVersion > 1 || (glRefConfig.glslMajorVersion == 1 && glRefConfig.glslMinorVersion >= 30))
+ 	{
+@@ -269,6 +295,7 @@ static void GLSL_GetShaderHeader( GLenum shaderType, const GLchar *extra, char *
+ 		Q_strcat(dest, size, "#version 120\n");
+ 		Q_strcat(dest, size, "#define shadow2D(a,b) shadow2D(a,b).r \n");
+ 	}
++#endif // __QNXNTO__
+ 
+ 	// HACK: add some macros to avoid extra uniforms and save speed and code maintenance
+ 	//Q_strcat(dest, size,
+@@ -1344,6 +1371,11 @@ void GLSL_InitGPUShaders(void)
+ 	}
+ 
+ 
++#ifndef __QNXNTO__
++	// NBT EVO / OpenGL ES 2.0: skip the sun-shadow mask, SSAO and depth-blur
++	// (DOF) post-process shaders. They use sampler2DShadow / dFdx(), which are
++	// not in GLSL ES 1.00, and they are only ever bound on the framebuffer-object
++	// render path - which is disabled on ES2 (glRefConfig.framebufferObject off).
+ 	attribs = ATTR_POSITION | ATTR_TEXCOORD;
+ 	extradefines[0] = '\0';
+ 
+@@ -1423,6 +1455,7 @@ void GLSL_InitGPUShaders(void)
+ 
+ 		numEtcShaders++;
+ 	}
++#endif // __QNXNTO__ - sun-shadow / SSAO / depth-blur post shaders
+ 
+ #if 0
+ 	attribs = ATTR_POSITION | ATTR_TEXCOORD;
+diff --git a/code/renderer2/tr_shader.c b/code/renderer2/tr_shader.c
+index 34c8cb9..3f187f6 100644
+--- a/code/renderer2/tr_shader.c
++++ b/code/renderer2/tr_shader.c
+@@ -1804,7 +1804,7 @@ static qboolean ParseCondition( const char **text, resultType *res )
+ 	for ( ;; )
+ 	{
+ 		rval_str[0] = '\0';
+-		rval_type = TK_GENEGIC;
++		rval_type = TK_GENERIC;
+ 
+ 		// expect l-value at least
+ 		token = COM_ParseComplex( text, qfalse );

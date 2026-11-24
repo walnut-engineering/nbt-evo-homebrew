@@ -1,0 +1,12 @@
+# Scripted input for the host harness: <gametic> <key> <down|up|press>
+# E1M1 player start is x=1056 y=-3616 facing north (90 degrees).
+# W is forward (key_up='w' in m_misc.c), D strafes right, RIGHT turns right,
+# CTRL fires, SPACE uses.
+35  w     down
+140 w     up
+150 d     down
+190 d     up
+200 RIGHT down
+235 RIGHT up
+240 CTRL  press
+260 SPACE press

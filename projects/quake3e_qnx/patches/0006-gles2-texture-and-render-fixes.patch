@@ -1,0 +1,97 @@
+diff --git a/code/renderer2/tr_backend.c b/code/renderer2/tr_backend.c
+index fccf5e7..2fe5588 100644
+--- a/code/renderer2/tr_backend.c
++++ b/code/renderer2/tr_backend.c
+@@ -379,6 +379,17 @@ static void RB_BeginDrawingView (void) {
+ 		clearBits |= GL_COLOR_BUFFER_BIT;	// FIXME: only if sky shaders have been used
+ 	}
+ 
++#ifdef __QNXNTO__
++	// This GLES2 path renders straight to the default framebuffer (no FBO) and
++	// the sky doesn't reliably cover the whole view, so without a color clear
++	// the one-time loading screen bleeds through as stale pixels. Clear color
++	// for the main world view every frame (the world/sky then draws over it).
++	if ( !( backEnd.refdef.rdflags & RDF_NOWORLDMODEL ) )
++	{
++		clearBits |= GL_COLOR_BUFFER_BIT;
++	}
++#endif
++
+ 	// clear to black for cube maps
+ 	if (tr.renderCubeFbo && backEnd.viewParms.targetFbo == tr.renderCubeFbo)
+ 	{
+diff --git a/code/renderer2/tr_dsa.c b/code/renderer2/tr_dsa.c
+index 76d0cf4..469a3d7 100644
+--- a/code/renderer2/tr_dsa.c
++++ b/code/renderer2/tr_dsa.c
+@@ -103,6 +103,13 @@ GLvoid APIENTRY GLDSA_TextureImage2DEXT(GLuint texture, GLenum target, GLint lev
+ 	GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels)
+ {
+ 	GL_BindMultiTexture(glDsaState.texunit, target, texture);
++#ifdef __QNXNTO__
++	// GLES2's glTexImage2D requires internalformat == format and rejects sized
++	// internal formats (GL_RGB8/GL_RGBA8). rend2 passes desktop-GL sized/mismatched
++	// formats, which fail (GL_INVALID_OPERATION) and leave textures unallocated =>
++	// black world. Force the unsized data format as the internal format.
++	internalformat = format;
++#endif
+ 	qglTexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
+ }
+ 
+diff --git a/code/renderer2/tr_init.c b/code/renderer2/tr_init.c
+index 5894228..b3458c6 100644
+--- a/code/renderer2/tr_init.c
++++ b/code/renderer2/tr_init.c
+@@ -402,20 +402,47 @@ static byte *RB_ReadPixels(int x, int y, int width, int height, size_t *offset,
+ 	GLint packAlign;
+ 	
+ 	qglGetIntegerv(GL_PACK_ALIGNMENT, &packAlign);
+-	
++
+ 	linelen = width * 3;
+ 	padwidth = PAD(linelen, packAlign);
+-	
++
+ 	// Allocate a few more bytes so that we can choose an alignment we like
+ 	buffer = ri.Hunk_AllocateTempMemory(padwidth * height + *offset + packAlign - 1);
+-	
++
+ 	bufstart = PADP((intptr_t) buffer + *offset, packAlign);
+ 
++#ifdef __QNXNTO__
++	// GLES2 only guarantees GL_RGBA/GL_UNSIGNED_BYTE for glReadPixels (GL_RGB
++	// faults on PowerVR). Read RGBA into a temp buffer, then pack to the
++	// RGB+pad TGA layout the callers expect.
++	{
++		byte *rgba, *src, *dst;
++		int row, col;
++
++		rgba = ri.Hunk_AllocateTempMemory( (size_t)width * height * 4 );
++		qglReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
++
++		for ( row = 0; row < height; row++ ) {
++			src = rgba + (size_t)row * width * 4;
++			dst = bufstart + (size_t)row * padwidth;
++			for ( col = 0; col < width; col++ ) {
++				dst[0] = src[0];
++				dst[1] = src[1];
++				dst[2] = src[2];
++				dst += 3;
++				src += 4;
++			}
++		}
++
++		ri.Hunk_FreeTempMemory(rgba);  // LIFO: rgba was allocated after buffer
++	}
++#else
+ 	qglReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE, bufstart);
+-	
++#endif
++
+ 	*offset = bufstart - buffer;
+ 	*padlen = padwidth - linelen;
+-	
++
+ 	return buffer;
+ }
+ 

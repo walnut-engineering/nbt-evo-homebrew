@@ -1,0 +1,6 @@
+# app.desc - registers this project as a launcher tile.
+name    = System
+exec    = evo_sysmon
+icon    = cpu.rgba
+order   = 30
+enabled = 1

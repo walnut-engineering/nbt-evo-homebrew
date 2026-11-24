@@ -1,0 +1,33 @@
+diff --git a/code/qcommon/q_platform.h b/code/qcommon/q_platform.h
+index 960f844..4c6f4f0 100644
+--- a/code/qcommon/q_platform.h
++++ b/code/qcommon/q_platform.h
+@@ -169,11 +169,15 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ 
+ //================================================================= LINUX ===
+ 
+-#if defined(__linux__) || defined(__FreeBSD_kernel__) || defined(__GNU__)
++#if defined(__linux__) || defined(__FreeBSD_kernel__) || defined(__GNU__) || defined(__QNXNTO__)
+ 
++#if !defined(__QNXNTO__)
+ #include <endian.h>
++#endif
+ 
+-#if defined(__linux__)
++#if defined(__QNXNTO__)
++#define OS_STRING "qnx"
++#elif defined(__linux__)
+ #define OS_STRING "linux"
+ #elif defined(__FreeBSD_kernel__)
+ #define OS_STRING "kFreeBSD"
+@@ -211,7 +215,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ #define idx64 1
+ #endif
+ 
+-#if __FLOAT_WORD_ORDER == __BIG_ENDIAN
++#if defined(__QNXNTO__)
++#define Q3_LITTLE_ENDIAN               /* NBT EVO: OMAP5 Cortex-A15 is LE; QNX lacks glibc <endian.h> */
++#elif __FLOAT_WORD_ORDER == __BIG_ENDIAN
+ #define Q3_BIG_ENDIAN
+ #else
+ #define Q3_LITTLE_ENDIAN

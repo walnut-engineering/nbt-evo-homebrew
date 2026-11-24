@@ -1,0 +1,8 @@
+# app.desc - registers this project as a launcher tile.
+# (The template lives outside projects/, so it is NOT auto-scanned. It becomes a
+# real tile once you copy this folder into ../../projects/<yourapp>/.)
+name    = Hello
+exec    = hello_evo
+icon    = hello.rgba
+order   = 90
+enabled = 1

@@ -1,0 +1,72 @@
+# --- build outputs (never commit) ---
+build/
+**/build/
+*.o
+*.obj
+*.a
+*.lo
+*.so.tmp
+
+# --- logs & scratch ---
+logs/
+*.log
+.DS_Store
+*~
+
+# --- large binary deps / data live outside git ---
+# The cross toolchain (toolchain/) is a large binary dependency you supply; it is
+# gitignored (see /toolchain below) and never committed to this repo.
+
+# --- credentials / local-only ---
+**/hu_creds.sh
+*.pem
+*.key
+
+# build-output binaries (cross-compiled; not source)
+/bin/
+
+# third-party tools kept locally, not committed (next agent has them on disk)
+projects/*/label_tool/
+# proprietary TI DCE/XDM headers (vendored for the HW encoder build)
+projects/screen_recorder/ti-dce/
+# project-local build outputs
+projects/doom_tile_daemon/evo_doom_tile
+projects/screen_recorder/evo_screenrec
+
+# large/third-party vendor archives kept local, never committed
+*.zip
+*.rar
+*.7z
+# compiled test binary (source evo_udpsend.c is tracked)
+projects/touch_inject/evo_udpsend
+
+# python bytecode
+__pycache__/
+*.pyc
+
+# generated launcher manifest + build scratch
+/build/
+
+# site-local creds for the launcher deploy tooling (never commit)
+scripts/evo_env.local.sh
+
+# quake3e upstream clone (fetched; our QNX port lives in projects/quake3e_qnx/)
+projects/quake3e/
+
+# ioquake3 upstream clone (GPL baseq3 game source + QVM toolchain for the
+# quake3e M5 VM build; our build glue lives in projects/quake3e_qnx/)
+projects/ioq3/
+
+# DOOM/Quake tile icons are built from the games' OWN title art (the DOOM M_DOOM
+# lump + the Quake logo512 texture), read from doom1.wad / pak0.pk3 by
+# tools/extract_game_icons.py. They're the games' copyrighted logos, so keep them
+# out of git like the game data itself; regenerate locally with that tool. The
+# utility icons (make_icons.py, original art) stay tracked.
+projects/evo_launcher/icons/doom.rgba
+projects/evo_launcher/icons/doom.png
+projects/evo_launcher/icons/quake.rgba
+projects/evo_launcher/icons/quake.png
+
+# target libs: symlinked to a sibling checkout / your own unit extract (not committed)
+/toolchain
+

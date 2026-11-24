@@ -1,0 +1,4 @@
+tools/hu_creds.sh
+controller/build/
+*.pcap
+re/binaries/

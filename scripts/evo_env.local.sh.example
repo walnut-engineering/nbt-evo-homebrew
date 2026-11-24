@@ -1,0 +1,7 @@
+# evo_env.local.sh - site-local overrides for the EVO launcher tooling.
+# Copy to evo_env.local.sh (gitignored) and fill in YOUR head unit's values.
+# Sourced by evo_env.sh before the placeholder defaults. QUOTE the password
+# (it often contains shell metacharacters like & $ !).
+EVO_HOST='169.254.199.119'      # your head unit's IP
+EVO_USER='root'
+EVO_PASS='your-qnx-root-password'

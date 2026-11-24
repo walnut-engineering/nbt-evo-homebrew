@@ -1,0 +1,6 @@
+# app.desc - registers this project as a launcher tile.
+name    = GPS
+exec    = evo_gps
+icon    = gps.rgba
+order   = 40
+enabled = 1

@@ -1,0 +1,11 @@
+# app.desc - registers this project as a launcher tile.
+# DOOM has its own build + persistent on-unit deploy (doom_launch.sh ->
+# /var/run/screen_tests), so build/deploy are left empty here: this descriptor
+# only registers the tile + ships its icon.
+name    = DOOM
+exec    = doom_launch.sh
+icon    = doom.rgba
+order   = 10
+enabled = 1
+build   =
+deploy  =

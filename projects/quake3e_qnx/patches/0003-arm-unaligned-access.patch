@@ -1,0 +1,209 @@
+diff --git a/code/qcommon/unzip.c b/code/qcommon/unzip.c
+index 878f5ea..8dbffc0 100644
+--- a/code/qcommon/unzip.c
++++ b/code/qcommon/unzip.c
+@@ -1469,6 +1469,14 @@ static void unzlocal_DosDateToTmuDate (uLong ulDosDate, tm_unz* ptm)
+     ptm->tm_sec =  (uInt) (2*(ulDosDate&0x1f)) ;
+ }
+ 
++/* Alignment-safe little-end reads from a packed buffer. The direct
++   *(int*)(buf+N) / *(short*)(buf+N) casts below hit unaligned offsets (e.g.
++   buf+42) which fault on ARM/QNX (the compiler may also merge adjacent reads
++   into an alignment-requiring LDRD). memcpy carries the same bytes and the
++   compiler still folds the aligned cases to a single load. */
++static ID_INLINE short unz_rd16( const byte *p ) { short v; memcpy( &v, p, sizeof( v ) ); return v; }
++static ID_INLINE int   unz_rd32( const byte *p ) { int   v; memcpy( &v, p, sizeof( v ) ); return v; }
++
+ /*
+   Get Info about the current file in the zipfile, with internal only info
+ */
+@@ -1506,22 +1514,22 @@ static int unzlocal_GetCurrentFileInfoInternal (unzFile file,
+ 	//	return UNZ_BADZIPFILE;
+ 	if ( memcmp( buf, "\x50\x4b\x01\x02", 4 ) != 0 )
+ 		return UNZ_BADZIPFILE;
+-	file_info.version = LittleShort( *(short*)(buf+4) );
+-	file_info.version_needed  = LittleShort( *(short*)(buf+6) );
+-	file_info.flag = LittleShort( *(short*)(buf+8) );
+-	file_info.compression_method = LittleShort( *(short*)(buf+10) );
+-	file_info.dosDate = LittleLong( *(int*)(buf+12) );
++	file_info.version = LittleShort( unz_rd16(buf+4) );
++	file_info.version_needed  = LittleShort( unz_rd16(buf+6) );
++	file_info.flag = LittleShort( unz_rd16(buf+8) );
++	file_info.compression_method = LittleShort( unz_rd16(buf+10) );
++	file_info.dosDate = LittleLong( unz_rd32(buf+12) );
+ 	unzlocal_DosDateToTmuDate( file_info.dosDate, &file_info.tmu_date );
+-	file_info.crc = LittleLong( *(int*)(buf+16) );
+-	file_info.compressed_size = LittleLong( *(int*)(buf+20) );
+-	file_info.uncompressed_size = LittleLong( *(int*)(buf+24) );
+-	file_info.size_filename = LittleShort( *(short*)(buf+28) );
+-	file_info.size_file_extra = LittleShort( *(short*)(buf+30) );
+-	file_info.size_file_comment = LittleShort( *(short*)(buf+32) );
+-	file_info.disk_num_start = LittleShort( *(short*)(buf+34) );
+-	file_info.internal_fa = LittleShort( *(short*)(buf+36) );
+-	file_info.external_fa = LittleLong( *(int*)(buf+38) );
+-	file_info_internal.offset_curfile = LittleLong( *(int*)(buf+42) );
++	file_info.crc = LittleLong( unz_rd32(buf+16) );
++	file_info.compressed_size = LittleLong( unz_rd32(buf+20) );
++	file_info.uncompressed_size = LittleLong( unz_rd32(buf+24) );
++	file_info.size_filename = LittleShort( unz_rd16(buf+28) );
++	file_info.size_file_extra = LittleShort( unz_rd16(buf+30) );
++	file_info.size_file_comment = LittleShort( unz_rd16(buf+32) );
++	file_info.disk_num_start = LittleShort( unz_rd16(buf+34) );
++	file_info.internal_fa = LittleShort( unz_rd16(buf+36) );
++	file_info.external_fa = LittleLong( unz_rd32(buf+38) );
++	file_info_internal.offset_curfile = LittleLong( unz_rd32(buf+42) );
+ #else
+ 
+ 	/* we check the magic */
+diff --git a/code/qcommon/vm.c b/code/qcommon/vm.c
+index 97b1c2f..c974f6c 100644
+--- a/code/qcommon/vm.c
++++ b/code/qcommon/vm.c
+@@ -1178,7 +1178,11 @@ const char *VM_LoadInstructions( const byte *code_pos, int codeLength, int instr
+ 		code_pos++;
+ 		ci->op = op0;
+ 		if ( n == 4 ) {
+-			ci->value = LittleLong( *((int32_t*)code_pos) );
++			// code_pos walks the bytecode byte-by-byte, so a 4-byte operand is
++			// usually unaligned -> a direct int32_t cast faults on ARM/QNX.
++			int32_t opnd;
++			memcpy( &opnd, code_pos, sizeof( opnd ) );
++			ci->value = LittleLong( opnd );
+ 			code_pos += 4;
+ 		} else if ( n == 1 ) {
+ 			ci->value = *((unsigned char*)code_pos);
+diff --git a/code/qcommon/vm_interpreted.c b/code/qcommon/vm_interpreted.c
+index 8ded57c..c500017 100644
+--- a/code/qcommon/vm_interpreted.c
++++ b/code/qcommon/vm_interpreted.c
+@@ -32,14 +32,24 @@ char *VM_Indent( vm_t *vm ) {
+ }
+ 
+ 
++/* ARM/QNX strict alignment: the interpreter accesses the VM data segment at
++   VM-controlled addresses that are frequently unaligned (e.g. OP_LOAD4/OP_STORE4
++   at an odd game address). A direct short/int cast faults on a strict-alignment
++   target, so these memcpy accessors carry the same bytes safely. OP_BLOCK_COPY
++   already uses memcpy. gcc folds the provably-aligned cases to a single load. */
++static ID_INLINE int  VM_Load32( const byte *p ) { int32_t v; memcpy( &v, p, 4 ); return v; }
++static ID_INLINE int  VM_Load16u( const byte *p ) { unsigned short v; memcpy( &v, p, 2 ); return v; }
++static ID_INLINE void VM_Store32( byte *p, int v ) { int32_t t = v; memcpy( p, &t, 4 ); }
++static ID_INLINE void VM_Store16( byte *p, int v ) { short t = (short)v; memcpy( p, &t, 2 ); }
++
+ void VM_StackTrace( vm_t *vm, int programCounter, int programStack ) {
+ 	int		count;
+ 
+ 	count = 0;
+ 	do {
+ 		Com_Printf( "%s\n", VM_ValueToSymbol( vm, programCounter ) );
+-		programStack =  *(int *)&vm->dataBase[programStack+4];
+-		programCounter = *(int *)&vm->dataBase[programStack];
++		programStack =  VM_Load32( &vm->dataBase[programStack+4] );
++		programCounter = VM_Load32( &vm->dataBase[programStack] );
+ 	} while ( programCounter != -1 && ++count < 32 );
+ 
+ }
+@@ -235,7 +245,7 @@ nextInstruction2:
+ 			programStack += v0;
+ 
+ 			// grab the saved program counter
+-			v1 = *(int32_t *)&image[ programStack ];
++			v1 = VM_Load32( &image[ programStack ] );
+ 			// check for leaving the VM
+ 			if ( v1 == -1 ) {
+ 				goto done;
+@@ -247,7 +257,7 @@ nextInstruction2:
+ 
+ 		case OP_CALL:
+ 			// save current program counter
+-			*(int *)&image[ programStack ] = ci - inst;
++			VM_Store32( &image[ programStack ], ci - inst );
+ 
+ 			// jump to the location on the stack
+ 			if ( r0.i < 0 ) {
+@@ -255,7 +265,7 @@ nextInstruction2:
+ 				// save the stack to allow recursive VM entry
+ 				//vm->programStack = programStack - 4;
+ 				vm->programStack = programStack - 8;
+-				*(int32_t *)&image[ programStack + 4 ] = ~r0.i;
++				VM_Store32( &image[ programStack + 4 ], ~r0.i );
+ 				{
+ #if __WORDSIZE == 64
+ 					// the vm has ints on the stack, we expect
+@@ -263,7 +273,7 @@ nextInstruction2:
+ 					intptr_t argarr[16];
+ 					int argn;
+ 					for ( argn = 0; argn < ARRAY_LEN( argarr ); ++argn ) {
+-						argarr[ argn ] = *(int32_t*)&image[ programStack + 4 + 4*argn ];
++						argarr[ argn ] = VM_Load32( &image[ programStack + 4 + 4*argn ] );
+ 					}
+ 					v0 = vm->systemCall( &argarr[0] );
+ #else
+@@ -273,7 +283,7 @@ nextInstruction2:
+ 
+ 				// save return value
+ 				//opStack++;
+-				ci = inst + *(int32_t *)&image[ programStack ];
++				ci = inst + VM_Load32( &image[ programStack ] );
+ 				*opStack = v0;
+ 			} else if ( r0.u < vm->instructionCount ) {
+ 				// vm call
+@@ -422,11 +432,11 @@ nextInstruction2:
+ 			goto nextInstruction2;
+ 
+ 		case OP_LOAD2:
+-			r0.i = *opStack = *(unsigned short *)&image[ r0.i & dataMask ];
++			r0.i = *opStack = VM_Load16u( &image[ r0.i & dataMask ] );
+ 			goto nextInstruction2;
+ 
+ 		case OP_LOAD4:
+-			r0.i = *opStack = *(int32_t *)&image[ r0.i & dataMask ];
++			r0.i = *opStack = VM_Load32( &image[ r0.i & dataMask ] );
+ 			goto nextInstruction2;
+ 
+ 		case OP_STORE1:
+@@ -435,18 +445,18 @@ nextInstruction2:
+ 			break;
+ 
+ 		case OP_STORE2:
+-			*(short *)&image[ r1.i & dataMask ] = r0.i;
++			VM_Store16( &image[ r1.i & dataMask ], r0.i );
+ 			opStack -= 2;
+ 			break;
+ 
+ 		case OP_STORE4:
+-			*(int *)&image[ r1.i & dataMask ] = r0.i;
++			VM_Store32( &image[ r1.i & dataMask ], r0.i );
+ 			opStack -= 2;
+ 			break;
+ 
+ 		case OP_ARG:
+ 			// single byte offset from programStack
+-			*(int32_t *)&image[ ( v0 + programStack ) /*& ( dataMask & ~3 ) */ ] = r0.i;
++			VM_Store32( &image[ ( v0 + programStack ) /*& ( dataMask & ~3 ) */ ], r0.i );
+ 			opStack--;
+ 			break;
+ 
+@@ -574,11 +584,11 @@ nextInstruction2:
+ 			ci++;
+ 			opStack++;
+ 			r1.i = r0.i;
+-			r0.i = *opStack = *(int32_t *)&image[ v0 + programStack ];
++			r0.i = *opStack = VM_Load32( &image[ v0 + programStack ] );
+ 			goto nextInstruction2;
+ 
+ 		case MOP_LOCAL_LOAD4_CONST:
+-			r1.i = opStack[1] = *(int32_t *)&image[ v0 + programStack ];
++			r1.i = opStack[1] = VM_Load32( &image[ v0 + programStack ] );
+ 			r0.i = opStack[2] = (ci+1)->value;
+ 			opStack += 2;
+ 			ci += 2;
+@@ -594,7 +604,7 @@ nextInstruction2:
+ 		case MOP_LOCAL_LOCAL_LOAD4:
+ 			r1.i = opStack[1] = v0 + programStack;
+ 			r0.i /*= opStack[2]*/ = ci->value + programStack;
+-			r0.i = opStack[2] = *(int32_t *)&image[ r0.i /*& dataMask*/ ];
++			r0.i = opStack[2] = VM_Load32( &image[ r0.i /*& dataMask*/ ] );
+ 			opStack += 2;
+ 			ci += 2;
+ 			goto nextInstruction2;

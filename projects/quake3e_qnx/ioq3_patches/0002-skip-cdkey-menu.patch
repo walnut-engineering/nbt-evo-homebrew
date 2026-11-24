@@ -1,0 +1,24 @@
+diff --git a/code/q3_ui/ui_menu.c b/code/q3_ui/ui_menu.c
+index 6afacba..18f2958 100644
+--- a/code/q3_ui/ui_menu.c
++++ b/code/q3_ui/ui_menu.c
+@@ -273,6 +273,9 @@ void UI_MainMenu( void ) {
+ 
+ 	trap_Cvar_Set( "sv_killserver", "1" );
+ 
++#ifndef __QNXNTO__
++	/* NBT EVO: bench unit running the free demo data - no retail CD key to
++	 * enter, so skip the startup CD-key gate and go straight to the main menu. */
+ 	if( !uis.demoversion && !ui_cdkeychecked.integer ) {
+ 		char	key[17];
+ 
+@@ -282,7 +285,8 @@ void UI_MainMenu( void ) {
+ 			return;
+ 		}
+ 	}
+-	
++#endif
++
+ 	memset( &s_main, 0 ,sizeof(mainmenu_t) );
+ 	memset( &s_errorMessage, 0 ,sizeof(errorMessage_t) );
+ 
