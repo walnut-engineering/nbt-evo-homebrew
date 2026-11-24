@@ -1,7 +1,7 @@
 # EVO Homebrew Launcher SDK
 
 A small platform for running your own full-screen apps on a BMW **NBT EVO ID5**
-head unit (QNX 6.6, OMAP5). A resident launcher draws a tile page over the OEM
+head unit (QNX 6.5, OMAP5). A resident launcher draws a tile page over the OEM
 HMI; you summon it with the iDrive knob, pick a tile, and your app takes the
 screen until you press **BACK**. Adding an app is a drop-in: a folder with a
 source file, a 3-line Makefile, and a one-line descriptor.
@@ -35,9 +35,10 @@ whole contract. The standard skeleton (init → context → presentation-mode �
 
 ## Prerequisites
 
-- The repo's QNX 6.6 cross toolchain under `../toolchain/` (linaro gcc 4.7.3 +
-  the on-unit libs). It is a large binary dependency kept outside git — see the
-  top-level `README.md`. Without it you can edit and read, but not build.
+- The **QNX 6.5 SDP** cross-compiler (`arm-unknown-nto-qnx6.5.0eabi-gcc-4.4.2`),
+  which you supply, plus the on-unit libraries under `../toolchain/`. Both are
+  kept outside git — see the top-level `README.md` / `SETUP.md`. Without them you
+  can edit and read, but not build.
 - `sshpass` on the build host (for `deploy.sh`).
 - A reachable head unit (USB-ethernet by default) and its root password.
 

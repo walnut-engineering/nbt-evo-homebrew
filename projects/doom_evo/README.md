@@ -1,6 +1,6 @@
 # DOOM Evolution - EVO Port
 
-A port of the classic DOOM game engine to EVO Neutrino for automotive and embedded systems.
+A port of the classic DOOM game engine to QNX Neutrino 6.5 on the BMW NBT EVO head unit.
 
 ## Current Status
 
@@ -78,7 +78,7 @@ A port of the classic DOOM game engine to EVO Neutrino for automotive and embedd
 - **Status**: **STABLE**
 - **Implementation**: `i_system_evo.c` with EVO-specific adaptations
 - **Features**:
-  - EVO Neutrino system calls
+  - QNX Neutrino system calls
   - Memory management adapted for embedded constraints
   - Error handling and graceful failure modes
   - Compatible with automotive EVO environments
@@ -203,14 +203,14 @@ make BUILD_TYPE=debug
 ## Dependencies
 
 ### Runtime Requirements
-- EVO Neutrino 6.6.0 or compatible
-- libscreen.so.1 (EVO Screen API)
+- QNX Neutrino 6.5.0 (the unit's OS)
+- libscreen.so.1 (QNX Screen API)
 - libm.so.2, libc.so.3, libpthread.so.1 (standard libraries)
 - doom1.wad (DOOM game data)
 
 ### Build Requirements  
-- EVO 6.6.0 SDK with ARM toolchain
-- arm-unknown-linux-gnueabi-linaro_4.7.3 cross-compiler
+- the QNX 6.5.0 SDP (supply your own; see the top-level SETUP.md)
+- its arm-unknown-nto-qnx6.5.0eabi-gcc-4.4.2 + ntoarmv7 binutils
 - Shared EVO display helper library
 
 ## Performance
