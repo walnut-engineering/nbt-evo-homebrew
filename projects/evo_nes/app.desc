@@ -1,0 +1,9 @@
+# app.desc - registers the NES emulator as a launcher tile.
+# The binary and its launch script live in /fs/sda1/evo; ROMs (bring your own)
+# go in /fs/sda1/evo/nes/*.nes. The script carries the audio library path.
+name    = NES
+exec    = nes_launch.sh
+icon    = nes.rgba
+order   = 16
+enabled = 1
+deploy  = bin/evo_nes target/nes_launch.sh
