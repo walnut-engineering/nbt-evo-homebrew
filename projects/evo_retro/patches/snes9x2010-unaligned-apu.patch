@@ -1,0 +1,18 @@
+--- a/src/apu.c
++++ b/src/apu.c
+@@ -216,13 +216,13 @@
+ 
+ #ifndef MSB_FIRST
+ 
+-#define GET_LE16(addr)		(*(uint16_t *) (addr))
++#define GET_LE16(addr)		((uint16_t) (((const uint8_t *) (addr))[0] | (((const uint8_t *) (addr))[1] << 8)))  /* QNX/ARM port: this CPU faults on unaligned loads */
+ /* Byte loads: the source may be unaligned (savestate buffers). */
+ #define GET_LE32(addr)		((uint32_t) ((const uint8_t *) (addr))[0] | \
+ 				 ((uint32_t) ((const uint8_t *) (addr))[1] << 8) | \
+ 				 ((uint32_t) ((const uint8_t *) (addr))[2] << 16) | \
+ 				 ((uint32_t) ((const uint8_t *) (addr))[3] << 24))
+-#define SET_LE16(addr, data)	((void) (*(uint16_t *) (addr) = (uint16_t) (data)))
++#define SET_LE16(addr, data)	((void) (((uint8_t *) (addr))[0] = (uint8_t) (data), ((uint8_t *) (addr))[1] = (uint8_t) ((data) >> 8)))
+ #define SET_LE32(addr, data)	((void) (((uint8_t *) (addr))[0] = (uint8_t) (data), \
+ 				 ((uint8_t *) (addr))[1] = (uint8_t) ((data) >> 8), \
+ 				 ((uint8_t *) (addr))[2] = (uint8_t) ((data) >> 16), \

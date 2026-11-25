@@ -1,0 +1,12 @@
+# app.snes.desc - registers the SNES emulator as a launcher tile.
+# evo_retro makes two tiles from one project, so its descriptors are named
+# app.<system>.desc. The binary is built by ./build.sh (it needs the emulator
+# cores fetched first), so `build` is empty here; your own ROM files go in
+# /fs/sda1/evo/snes/. The launch script carries the audio library path.
+name    = SNES
+exec    = snes_launch.sh
+icon    = snes.rgba
+order   = 17
+enabled = 1
+build   =
+deploy  = bin/evo_snes target/snes_launch.sh

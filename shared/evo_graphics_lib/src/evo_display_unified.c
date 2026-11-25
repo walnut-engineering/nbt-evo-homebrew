@@ -1499,6 +1499,43 @@ int evo_display_update(evo_display_t* display) {
 /**
  * Swap front and back buffers for double buffering
  */
+/**
+ * Direct drawing: hand out the scan-out buffer that is NOT on screen, so an app that
+ * redraws only part of the frame (an emulator's picture) can write straight into it
+ * instead of drawing into the shadow frame and having all of it copied on every
+ * present. Returns NULL when the window is not double-buffered (use the shadow frame
+ * and evo_display_swap_buffers() then).
+ *
+ * The two scan-out buffers alternate, so each one sees every OTHER frame: whatever
+ * lies outside the area the app redraws has to be drawn into both of them (two
+ * consecutive frames) before it can be left alone. Write only - this is graphics
+ * memory and reading it back is slow.
+ */
+void *evo_display_direct_begin(evo_display_t* display, int *stride_bytes) {
+    evo_display_context_t *ctx = (evo_display_context_t*)display;
+    if (!ctx || !ctx->screen_win || ctx->buffer_count != 2 || !ctx->screen_ptrs[0] || !ctx->screen_ptrs[1]) return NULL;
+    if (ctx->screen_ptr == ctx->screen_ptrs[0] || ctx->screen_ptr == ctx->screen_ptrs[1]) return NULL;   /* no shadow frame */
+    if (stride_bytes) *stride_bytes = ctx->screen_stride;
+    return ctx->screen_ptrs[1 - ctx->current_buffer];
+}
+
+/**
+ * Post the buffer evo_display_direct_begin() handed out. x/y/w/h is the area that
+ * changed since this buffer was last on screen (a hint for the compositor).
+ */
+int evo_display_direct_post(evo_display_t* display, int x, int y, int w, int h) {
+    evo_display_context_t *ctx = (evo_display_context_t*)display;
+    int next, rc, rect[4];
+    if (!ctx || !ctx->screen_win || ctx->buffer_count != 2) return -1;
+    next = 1 - ctx->current_buffer;
+    rect[0] = x; rect[1] = y; rect[2] = x + w; rect[3] = y + h;
+    ctx->screen_buf = ctx->screen_bufs[next];
+    ctx->front_buffer = ctx->current_buffer = next;
+    rc = screen_post_window(ctx->screen_win, ctx->screen_buf, 1, rect, 0);
+    screen_flush_context(ctx->screen_ctx, 0);
+    return rc;
+}
+
 int evo_display_swap_buffers(evo_display_t* display) {
     if (!display) {
         printf("[EVO] evo_display_swap_buffers - Invalid display\n");
@@ -1524,6 +1561,7 @@ int evo_display_swap_buffers(evo_display_t* display) {
     /* Set up next back buffer for rendering */
     ctx->current_buffer = 1 - ctx->front_buffer;
     
-    printf("[EVO] Buffers swapped: front=%d, current=%d\n", ctx->front_buffer, ctx->current_buffer);
+    /* (No per-frame log line here: an app's stdout goes to a RAM-backed file in
+     * /dev/shmem, and one line per frame grew it by megabytes per hour of play.) */
     return 0;
 }

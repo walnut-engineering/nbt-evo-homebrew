@@ -270,6 +270,14 @@ int evo_display_update(evo_display_t* display);
  */
 int evo_display_swap_buffers(evo_display_t* display);
 
+/**
+ * Direct drawing into the off-screen scan-out buffer, for apps that redraw only part
+ * of the frame every time (see the notes at the definition). NULL = not available,
+ * use the shadow frame and evo_display_swap_buffers().
+ */
+void *evo_display_direct_begin(evo_display_t* display, int *stride_bytes);
+int evo_display_direct_post(evo_display_t* display, int x, int y, int w, int h);
+
 /* ============================================================================
  * FRAMEBUFFER ACCESS
  * ============================================================================ */

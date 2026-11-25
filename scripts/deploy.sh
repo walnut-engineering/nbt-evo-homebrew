@@ -61,7 +61,7 @@ add_push() { PUSHLIST="$PUSHLIST$1|$2|${3:-}
 "; }
 
 if [ "$CORE_ONLY" = 0 ]; then
-  for desc in "$PROJECTS"/*/app.desc; do
+  for desc in "$PROJECTS"/*/app.desc "$PROJECTS"/*/app.*.desc; do
     [ -f "$desc" ] || continue
     proj="$(dirname "$desc")"; pname="$(basename "$proj")"
     read_desc "$desc"
