@@ -1,7 +1,10 @@
 # evo_nes
 
 An **NES emulator** tile — Nofrendo running on the head unit, driven by the iDrive
-knob (or a USB keyboard), with sound out the car speakers. Bring your own ROMs.
+knob, an Xbox controller or a USB keyboard, with sound out the car speakers. Bring
+your own ROMs.
+
+![The NES tile running the free nestest ROM](../../docs/images/nes.png)
 
 ## How it works
 - **Core:** [`nofrendo/`](nofrendo) is the Nofrendo NES core (LGPL, vendored from the

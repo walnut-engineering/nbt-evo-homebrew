@@ -11,9 +11,9 @@ Yes, it runs **DOOM**. It also runs Quake 3, NES, SNES and Genesis emulators
 (with Xbox controllers), a shell, a system monitor and a live GPS readout — and
 adding your own app is a 3-line Makefile and a one-line descriptor.
 
-![The homebrew launcher floating over the live HMI — DOOM, Quake 3, Terminal, System and GPS](docs/images/launcher.png)
+![The homebrew launcher floating over the live HMI — DOOM, Quake 3, NES, SNES, Genesis and Terminal, with two more tiles a turn away](docs/images/launcher.png)
 
-<sub>Summon with an iDrive ▲/▼ tilt on the Startmenu; the page floats over the dimmed OEM HMI (per-pixel alpha). Rotate to move, press to launch, tilt up/down to close — the row scrolls once you pass six apps.</sub>
+<sub>Captured from the unit's panel. Summon with an iDrive ▲/▼ tilt (or a gamepad's Xbox button) on the Startmenu; the page floats over the dimmed OEM HMI (per-pixel alpha). Rotate to move, press to launch, tilt up/down to close — the row scrolls once you pass six apps.</sub>
 
 > **Research project.** Built and tested on a **bench** head unit (never in a
 > car). Not affiliated with or endorsed by BMW. Everything here runs in user
@@ -50,9 +50,9 @@ adding your own app is a 3-line Makefile and a one-line descriptor.
 |------|------------|
 | **DOOM** | The shareware game, running on the head unit with sound out the car speakers; iDrive BACK quits, the knob/5-way drives it. (Bring your own `doom1.wad`.) |
 | **Quake 3** | ioquake3 / quake3e port on the PowerVR GPU via GLES2. (Bring your own `pak0.pk3`.) |
-| **NES** | NES emulator (Nofrendo core): ROM picker, sound, two players. (Bring your own ROMs.) |
-| **SNES** | Super Nintendo emulator (Snes9x 2010 core behind our own frontend): four picture fits, battery saves, save states, zipped games, a settings page. (Bring your own ROMs.) |
-| **Genesis** | Sega Genesis / Mega Drive, Master System and Game Gear (Genesis Plus GX core, same frontend). (Bring your own ROMs.) |
+| **NES** | NES emulator (Nofrendo core): ROM picker, sound, two players — [`projects/evo_nes`](projects/evo_nes). (Bring your own ROMs.) |
+| **SNES** | Super Nintendo emulator (Snes9x 2010 core behind our own frontend): four picture fits, battery saves, save states, zipped games, a settings page — [`projects/evo_snes`](projects/evo_snes). (Bring your own ROMs.) |
+| **Genesis** | Sega Genesis / Mega Drive, Master System and Game Gear (Genesis Plus GX core, same frontend) — [`projects/evo_genesis`](projects/evo_genesis). (Bring your own ROMs.) |
 | **Terminal** | A real QNX shell on the car screen (BACK exits — no keyboard needed). |
 | **System** | Live system monitor: CPU cores + clock, per-core temperature, RAM used/free, process & thread counts, load and uptime, top processes — all via native QNX syscalls. |
 | **GPS** | Live latitude/longitude read from the navigation positioning engine over DSI. |
@@ -61,22 +61,39 @@ adding your own app is a 3-line Makefile and a one-line descriptor.
 
 <sub>Press a tile and a short “Starting…” splash shows while the app takes the screen; iDrive **BACK** returns you here.</sub>
 
+### The emulators on the panel
+
+<p>
+<img src="docs/images/snes.png" width="49%" alt="The SNES tile running the 240p Test Suite at the Sharp 2x picture fit">
+<img src="docs/images/genesis.png" width="49%" alt="The Genesis tile running the 240p Test Suite">
+<img src="docs/images/snes-settings.png" width="49%" alt="The emulators' settings page, with the picture at TV 4:3 shown live behind it">
+<img src="docs/images/snes-menu.png" width="49%" alt="The in-game menu: resume, save state, load state, settings, reset, change game, quit">
+<img src="docs/images/nes.png" width="49%" alt="The NES tile running the nestest ROM">
+</p>
+
+<sub>Captured from the unit's panel (1440×540), running free test ROMs: the SNES and Genesis tiles at the default whole-number picture fit, the settings page with the 4:3 fit shown live behind it, the in-game menu, and the NES tile. Other fits fill the panel's height or stretch to 16:9.</sub>
+
 ## Install the prebuilt binaries
 
 Don't want to cross-compile? The [**latest release**](../../releases/latest) ships
-prebuilt ARM/QNX binaries for five tiles (DOOM, Quake 3, Terminal, System, GPS)
-plus an on-unit installer. The NES, SNES and Genesis tiles and the Xbox controller
-daemon are newer than that release: build them from source for now. On the unit
-(a root shell, or run it straight off a USB stick — it mounts as `/fs/sda1`):
+prebuilt ARM/QNX binaries for all eight tiles (DOOM, Quake 3, NES, SNES, Genesis,
+Terminal, System, GPS) and the Xbox controller daemon, plus an on-unit installer.
+On the unit (a root shell, or run it straight off a USB stick — it mounts as
+`/fs/sda1`):
 
 ```sh
 sh install.sh                # stage the launcher + apps into /fs/sda1/evo (no system changes)
 sh install.sh --enable-knob  # also turn on iDrive-knob input + boot autostart, then reboot
 ```
 
-The release's `INSTALL.md` covers the fail-safe `most` shim and how to uninstall.
-Game data is still yours to supply (`doom1.wad`, Quake's `pak0.pk3`). Prefer to
-build it all from source? Read on.
+The release's [`INSTALL.md`](release/INSTALL.md) covers the fail-safe `most` shim,
+where your own files go and how to uninstall. Game data is still yours to supply
+(`doom1.wad`, Quake's `pak0.pk3`, your ROMs), and so is the Xbox adapter's
+firmware. Because the SNES and Genesis binaries contain emulator cores under
+non-commercial licences, the release may only be passed on **non-commercially**;
+its `LICENSES/` folder says what applies to which file. The release is built and
+packed by [`release/make_release.sh`](release/make_release.sh). Prefer to build it
+all from source? Read on.
 
 ## How an app reaches the screen
 
@@ -91,8 +108,8 @@ shaders, no OEM app slots — just a layer of our own and the framebuffer.
 
 ## What you supply yourself
 
-This repo is **source only**. These things are not included — bring them from
-your own setup:
+This repo is **source only**. To build it, these things are not included — bring
+them from your own setup:
 
 - **The QNX 6.5 SDP** — the cross-compiler (see [Toolchain setup](#toolchain-setup)).
 - **On-unit libraries** — a few libraries ship only on the head unit, are linked
@@ -107,9 +124,9 @@ your own setup:
   needs `pak0.pk3`. The emulators play your own ROM files (and, for Sega CD, your
   own BIOS file). No game assets are shipped.
 - **The emulator cores** — Snes9x and Genesis Plus GX are under non-commercial
-  licences, so they are not in this repository;
-  [`projects/evo_retro/cores.sh`](projects/evo_retro/cores.sh) fetches them at
-  pinned commits when you build.
+  licences, so they are not in this repository; each tile's `core.sh`
+  ([SNES](projects/evo_snes/core.sh), [Genesis](projects/evo_genesis/core.sh))
+  fetches its core at a pinned commit the first time you build it.
 - **The Xbox adapter's firmware** — Microsoft's, fetched from Windows Update by
   [`projects/evo_padd/fetch_firmware.sh`](projects/evo_padd/fetch_firmware.sh) on
   your PC. Only needed for gamepads.
@@ -197,13 +214,15 @@ projects/                  the apps + supporting tools
   doom_evo/                  DOOM engine + controller/sound/launch glue
   quake3e_qnx/               Quake 3 (ioquake3/quake3e) QNX/GLES2 port patches + glue
   evo_nes/                   NES tile (vendored Nofrendo core + QNX port)
-  evo_retro/                 SNES + Genesis tiles (libretro frontend; cores fetched at build)
+  evo_snes/ evo_genesis/     SNES + Genesis tiles (each fetches and builds its emulator core)
+  evo_retro/                 the libretro frontend those two tiles share
   evo_padd/                  Xbox wireless controller daemon + test tools
   nbt-dsi-toolkit/           bundled DSI client + service tools (talk to unit services)
 launcher_sdk/              template app + guide for writing your own
 scripts/                   gen_manifest.sh, deploy.sh, evo_env.sh (connection/config)
+release/                   builds + packs the binary release; the on-unit installer
 toolchain/target/          on-unit libraries you supply (libscreen, ILM) — not shipped
-docs/                      historical graphics-backend R&D log + build-system notes
+docs/                      historical graphics-backend R&D log + build-system notes, screenshots
 ```
 
 ## License
@@ -228,11 +247,13 @@ The code here is a mix:
   core, **LGPL** (see [`COPYING.LGPL`](projects/evo_nes/nofrendo/COPYING.LGPL));
   the changes made for this unit are listed in
   [`QNX_PATCHES.md`](projects/evo_nes/nofrendo/QNX_PATCHES.md).
-- **[`projects/evo_retro/`](projects/evo_retro)** — the frontend is original work
-  (MIT) and `libretro.h` is MIT. The cores it links, **Snes9x** and **Genesis Plus
-  GX**, are fetched at build time and are free to use and share **non-commercially
-  only**, so a built `evo_snes` or `evo_genesis` may only be passed on
-  non-commercially, with the cores' licence files (see the project's
+- **[`projects/evo_retro/`](projects/evo_retro)**, **[`evo_snes/`](projects/evo_snes)**,
+  **[`evo_genesis/`](projects/evo_genesis)** — the frontend and the tiles' own files
+  are original work (MIT) and `libretro.h` is MIT. The cores they link, **Snes9x**
+  and **Genesis Plus GX**, are fetched at build time and are free to use and share
+  **non-commercially only**, so a built `evo_snes` or `evo_genesis` — and a binary
+  release that contains them — may only be passed on non-commercially, with the
+  cores' licence files (see the frontend's
   [README](projects/evo_retro/README.md#licences)).
 - **[`projects/nbt-dsi-toolkit/dsi_sdk/`](projects/nbt-dsi-toolkit/dsi_sdk)** —
   Harman's DSI reference implementation, **MPL-2.0** (see

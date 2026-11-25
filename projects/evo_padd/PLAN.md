@@ -79,7 +79,8 @@ All checked on the bench unit with a model 1708 and a model 1537 controller.
    one in hand), the same after the 12 V supply was cut, unplug / replug of the
    adapter, a long session, and the first-connection drop seen once (a controller
    disassociated 2.5 s after joining and needed re-pairing; not seen again in later
-   runs). Not in a binary release yet.
+   runs). The daemon is in the binary release since 2026-11-25; the adapter's
+   firmware is not (see the README).
 
 What the port turned up about this unit's USB stack is in the README ("Things specific
 to this unit's USB stack").
