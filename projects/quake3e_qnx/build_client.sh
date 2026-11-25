@@ -44,7 +44,7 @@ CFLAGS="$SDP_CPU -O2 -DNDEBUG -fvisibility=hidden -ffunction-sections -fdata-sec
   -pipe -Wno-unused-result -DNO_VM_COMPILED -DUSE_OPENGL_API -include $HERE/qnx_prefix.h"
 [ "${DEBUG:-0}" = "1" ] && CFLAGS="$CFLAGS -g"
 # our QNX layer lives outside the tree -> needs explicit include dirs + jpeg hdrs
-QNXINC="-I$Q/client -I$Q/renderercommon -I$Q/qcommon -I$HERE/qnx"
+QNXINC="-I$Q/client -I$Q/renderercommon -I$Q/qcommon -I$HERE/qnx -I$HERE/../../shared/include"
 JPGINC="-I$Q/libjpeg"
 # renderer2 (rend2) include set: our GL2->GLES2 compat header lives in qnx/
 REND2INC="-I$Q/renderer2 -I$Q/renderercommon -I$Q/qcommon -I$Q/libjpeg -I$HERE/qnx"

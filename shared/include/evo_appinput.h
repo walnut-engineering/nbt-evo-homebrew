@@ -38,6 +38,8 @@
 #define EVO_AI_MAGIC     0x0e5feed3u
 #define EVO_AI_K_BUTTON  4          /* evo_feed.h EVO_K_BUTTON */
 #define EVO_AI_BTN_BACK  0x02       /* iDrive BACK button id - the ONLY app-exit button */
+#define EVO_AI_BTN_OPTION 0x04      /* what a gamepad's B button arrives as */
+#define EVO_AI_PAD_MARK  0x58       /* evo_pad.h EVO_PAD_FEED_MARK: event came from a gamepad */
 #define EVO_AI_GRAB_TTL  2000u      /* ms; must refresh faster than this */
 /* NB: MENU (0x01) is deliberately NOT handled here.  MENU-longpress is reserved by the
  * dual-screen Android head unit to switch video between the BMW HMI and the Android unit;
@@ -78,6 +80,11 @@ static void *evo_ai_thread(void *arg) {
                 struct evo_ai_ev *e = &f->ev[tail % EVO_AI_RING];
                 if (e->kind == EVO_AI_K_BUTTON && e->b[0] == EVO_AI_BTN_BACK && e->b[1])
                     *run = 0;                 /* BACK press = quit (the ONLY exit; MENU is reserved) */
+                /* A gamepad (evo_padd marks its events in b[3]): B leaves too. On the pad the
+                 * Xbox button arrives as BACK; B arrives as OPTION, which the knob never
+                 * uses to quit - so this is checked on marked events only. */
+                else if (e->kind == EVO_AI_K_BUTTON && e->b[0] == EVO_AI_BTN_OPTION && e->b[1] && e->b[3] == EVO_AI_PAD_MARK)
+                    *run = 0;
                 tail++;
             }
         }

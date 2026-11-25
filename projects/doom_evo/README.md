@@ -2,6 +2,16 @@
 
 A port of the classic DOOM game engine to QNX Neutrino 6.5 on the BMW NBT EVO head unit.
 
+## Gamepad
+
+With [evo_padd](../evo_padd/README.md) running and an Xbox controller connected DOOM is
+twin-stick: left stick or D-pad moves and strafes, right stick turns, RT or X fires,
+A or B opens doors, LT walks (you run by default), LB / RB change weapon, Y or View
+toggles the automap, Menu opens DOOM's menu, and the Xbox button opens the menu on a
+tap and quits to the launcher when held for a second. In the menu the stick moves,
+A selects and B goes back. The pad is read in `source/i_input_evo.c`
+(`ctrl_service_pad`).
+
 ## Current Status
 
 ### ⚠️ **CURRENT ISSUE: Input Filtering Implementation** 

@@ -73,5 +73,9 @@ supervise() {   # $1 = name, $2.. = command
 # page only opens from there (not a notification/submenu). The launcher fail-opens if it is absent.
 supervise evo_hmistate $E/evo_hmistate -daemon &
 supervise evo_launcher $E/evo_launcher -daemon &
+# Xbox wireless controllers (optional): only if the daemon and the adapter's firmware
+# are installed. -w waits for the adapter to be plugged in; the daemon exits cleanly
+# when it is unplugged and is started again here, waiting for the next one.
+[ -x $E/evo_padd ] && [ -f $E/xbox/FW_ACC_00U.bin ] && supervise evo_padd $E/evo_padd -w &
 wait
 echo "`date` autostart: end" >> $LOG

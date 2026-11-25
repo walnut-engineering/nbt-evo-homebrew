@@ -70,3 +70,10 @@ projects/evo_launcher/icons/quake.png
 # target libs: symlinked to a sibling checkout / your own unit extract (not committed)
 /toolchain
 
+# Xbox wireless adapter firmware (Microsoft's; fetched by the user, never committed)
+FW_ACC_*.bin
+projects/evo_padd/*.bin
+projects/evo_padd/*.cab
+# emulator cores (Snes9x, Genesis Plus GX: non-commercial licences) are fetched at build
+# time by projects/evo_retro/cores.sh and never committed
+projects/evo_retro/cores/

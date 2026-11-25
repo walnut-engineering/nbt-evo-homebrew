@@ -291,6 +291,136 @@ static void ctrl_service_taps( unsigned int now )
 static const char *s_dir_down_cmd[4] = { "+forward", "+back", "+moveleft", "+moveright" };
 static const char *s_dir_up_cmd[4]   = { "-forward", "-back", "-moveleft", "-moveright" };
 
+/* =====================  gamepad (evo_padd pad-state block)  =================
+ * Twin-stick controls read straight from /dev/shmem/evo_pad (shared/include/
+ * evo_pad.h) rather than from the knob events the daemon mirrors into the ring,
+ * which can only express one direction and one detent at a time.
+ *
+ *   game  left stick / D-pad  move (diagonals)      right stick  look (analogue)
+ *         RT  attack      LT  zoom       A  jump     B  crouch    X  use item
+ *         LB / RB / Y  previous / next / next weapon  View  scores (hold)
+ *         Menu  menu (Esc)     Xbox  quit, press twice (the ring's BACK, as the knob)
+ *   menu  stick / D-pad  move (repeats)   A  select   B / Menu  back
+ * EVO_Q3_PADLOOK=<percent> scales the look speed. */
+#include "evo_pad.h"
+#define PAD_DEAD_MOVE       12000
+#define PAD_DEAD_LOOK       5000
+#define PAD_TRIGGER_ON      300      /* of 1023 */
+#define PAD_YAW_PER_S       2400     /* mouse counts per second at full deflection */
+#define PAD_PITCH_PER_S     1400
+#define PAD_REPEAT_FIRST_MS 350
+#define PAD_REPEAT_MS       140
+
+static const struct evo_pad *s_pad_blk = NULL;
+static unsigned int s_pad_retry = 0;
+static int s_pad_on = 0;             /* a pad is driving the game: skip its mirrored ring events */
+static int s_pad_look = 100;
+static struct {
+	unsigned int btn;                /* buttons at the previous poll */
+	int dir[4], attack, zoom, jump, crouch, use, scores;
+	unsigned int look_ms;
+	int accx, accy;                  /* look remainder, 1/1000 mouse count */
+	int nav_key; unsigned int nav_ms;
+} s_pd;
+
+static void pad_hold( int *held, int want, const char *down, const char *up )
+{
+	if ( want && !*held )      { push_cmd( down ); *held = 1; }
+	else if ( !want && *held ) { push_cmd( up );   *held = 0; }
+}
+
+static void pad_release_game( void )
+{
+	int d;
+	for ( d = 0; d < 4; d++ ) pad_hold( &s_pd.dir[d], 0, s_dir_down_cmd[d], s_dir_up_cmd[d] );
+	pad_hold( &s_pd.attack, 0, "+attack", "-attack" );
+	pad_hold( &s_pd.zoom,   0, "+zoom", "-zoom" );
+	pad_hold( &s_pd.jump,   0, "+moveup", "-moveup" );
+	pad_hold( &s_pd.crouch, 0, "+movedown", "-movedown" );
+	pad_hold( &s_pd.use,    0, "+button2", "-button2" );
+	pad_hold( &s_pd.scores, 0, "+scores", "-scores" );
+}
+
+/* stick value -> -1000..1000 beyond the dead zone, squared for fine aim near the centre */
+static int pad_axis( int v )
+{
+	int a = v < 0 ? -v : v, r;
+	if ( a <= PAD_DEAD_LOOK ) return 0;
+	r = ( a - PAD_DEAD_LOOK ) * 1000 / ( 32767 - PAD_DEAD_LOOK );
+	r = r * r / 1000;
+	return v < 0 ? -r : r;
+}
+
+static void pad_service( unsigned int now, int ui )
+{
+	unsigned int b, pressed;
+	int lx, ly, rx, ry, lt, rt, want[4], d;
+
+	if ( !s_pad_blk ) {                         /* the daemon may start after the game */
+		if ( s_pad_retry && (int)( now - s_pad_retry ) < 1000 ) return;
+		s_pad_retry = now | 1u;
+		s_pad_blk = evo_pad_open();
+		if ( !s_pad_blk ) return;
+	}
+	if ( !evo_pad_alive( s_pad_blk ) || !s_pad_blk->pad[0].connected ) {
+		if ( s_pad_on ) { pad_release_game(); s_pad_on = 0; }
+		return;
+	}
+	b = s_pad_blk->pad[0].buttons;
+	lx = s_pad_blk->pad[0].lx; ly = s_pad_blk->pad[0].ly;
+	rx = s_pad_blk->pad[0].rx; ry = s_pad_blk->pad[0].ry;
+	lt = (int)s_pad_blk->pad[0].lt; rt = (int)s_pad_blk->pad[0].rt;
+	if ( !s_pad_on ) {                          /* just appeared: what is held now is not a new press */
+		memset( &s_pd, 0, sizeof( s_pd ) );
+		s_pd.btn = b; s_pd.look_ms = now;
+		s_pad_on = 1;
+	}
+	pressed = b & ~s_pd.btn; s_pd.btn = b;
+
+	if ( pressed & EVO_PAD_MENU ) ctrl_tap_key( K_ESCAPE );
+
+	want[EVO_DIR_FWD]   = ( b & EVO_PAD_UP )    || ly >  PAD_DEAD_MOVE;
+	want[EVO_DIR_BACK]  = ( b & EVO_PAD_DOWN )  || ly < -PAD_DEAD_MOVE;
+	want[EVO_DIR_LEFT]  = ( b & EVO_PAD_LEFT )  || lx < -PAD_DEAD_MOVE;
+	want[EVO_DIR_RIGHT] = ( b & EVO_PAD_RIGHT ) || lx >  PAD_DEAD_MOVE;
+
+	if ( ui ) {
+		int nav = want[EVO_DIR_FWD] ? K_UPARROW : want[EVO_DIR_BACK] ? K_DOWNARROW :
+		          want[EVO_DIR_LEFT] ? K_LEFTARROW : want[EVO_DIR_RIGHT] ? K_RIGHTARROW : 0;
+		pad_release_game();
+		if ( nav != s_pd.nav_key ) { s_pd.nav_key = nav; if ( nav ) { ctrl_tap_key( nav ); s_pd.nav_ms = now + PAD_REPEAT_FIRST_MS; } }
+		else if ( nav && (int)( now - s_pd.nav_ms ) >= 0 ) { ctrl_tap_key( nav ); s_pd.nav_ms = now + PAD_REPEAT_MS; }
+		if ( pressed & EVO_PAD_A ) ctrl_tap_key( K_ENTER );
+		if ( pressed & EVO_PAD_B ) ctrl_tap_key( K_ESCAPE );
+		s_pd.look_ms = now; s_pd.accx = s_pd.accy = 0;
+		return;
+	}
+	s_pd.nav_key = 0;
+
+	for ( d = 0; d < 4; d++ ) pad_hold( &s_pd.dir[d], want[d], s_dir_down_cmd[d], s_dir_up_cmd[d] );
+	pad_hold( &s_pd.attack, rt > PAD_TRIGGER_ON, "+attack", "-attack" );
+	pad_hold( &s_pd.zoom,   lt > PAD_TRIGGER_ON, "+zoom", "-zoom" );
+	pad_hold( &s_pd.jump,   ( b & EVO_PAD_A ) != 0, "+moveup", "-moveup" );
+	pad_hold( &s_pd.crouch, ( b & EVO_PAD_B ) != 0, "+movedown", "-movedown" );
+	pad_hold( &s_pd.use,    ( b & EVO_PAD_X ) != 0, "+button2", "-button2" );
+	pad_hold( &s_pd.scores, ( b & EVO_PAD_VIEW ) != 0, "+scores", "-scores" );
+	if ( pressed & ( EVO_PAD_RB | EVO_PAD_Y ) ) push_cmd( "weapnext" );
+	if ( pressed & EVO_PAD_LB ) push_cmd( "weapprev" );
+
+	/* right stick -> mouse motion, integrated over real time so the speed does not
+	 * depend on how often this loop runs; the remainder carries to the next poll */
+	{
+		int dt = (int)( now - s_pd.look_ms ), dx, dy;
+		if ( dt > 50 ) dt = 50;
+		s_pd.look_ms = now;
+		s_pd.accx += pad_axis( rx ) * PAD_YAW_PER_S / 1000 * dt * s_pad_look / 100;
+		s_pd.accy -= pad_axis( ry ) * PAD_PITCH_PER_S / 1000 * dt * s_pad_look / 100;   /* stick up = look up = mouse up */
+		dx = s_pd.accx / 1000; dy = s_pd.accy / 1000;
+		s_pd.accx -= dx * 1000; s_pd.accy -= dy * 1000;
+		if ( dx || dy ) push_event( IE_MOUSE, dx, dy );
+	}
+}
+
 static void *ctrl_thread( void *arg )
 {
 	struct evo_feed *f = NULL;
@@ -302,6 +432,8 @@ static void *ctrl_thread( void *arg )
 	FILE *lg = getenv( "EVO_Q3_CTRL_LOG" ) ? fopen( "/dev/shmem/evo_q3ctrl.log", "w" ) : NULL;
 	(void)arg;
 	if ( env && atoi( env ) > 0 ) s_turn_scale = atoi( env );
+	env = getenv( "EVO_Q3_PADLOOK" );
+	if ( env && atoi( env ) > 0 ) s_pad_look = atoi( env );
 
 	while ( !s_shutdown ) {
 		unsigned int now = ms_now();
@@ -324,6 +456,7 @@ static void *ctrl_thread( void *arg )
 		 * it so it lapses within the TTL if we die and the HMI gets the knob back. */
 		if ( (int)( now - last_grab ) > 400 ) { f->grab_until = now + EVO_GRAB_TTL_MS; last_grab = now; }
 		ctrl_service_taps( now );
+		pad_service( now, ( Key_GetCatcher() & ( KEYCATCH_UI | KEYCATCH_CONSOLE ) ) ? 1 : 0 );
 
 		{
 			unsigned int head = f->head;
@@ -333,6 +466,9 @@ static void *ctrl_thread( void *arg )
 			while ( tail != head ) {
 				struct evo_ev ev = f->ev[ tail % EVO_FEED_RING ];
 				tail++;
+				/* the pad's mirrored knob events: handled directly in pad_service(), except
+				 * the Xbox button, which stays the ring's BACK (confirm-to-quit, below) */
+				if ( s_pad_on && ev.b[3] == EVO_PAD_FEED_MARK && !( ev.kind == EVO_K_BUTTON && ev.b[0] == 0x02 ) ) continue;
 				switch ( ev.kind ) {
 				case EVO_K_ROTARY: {
 					int d = (signed char)ev.b[0];
@@ -409,6 +545,7 @@ static void *ctrl_thread( void *arg )
 	/* release anything still held + hand the controller back to the HMI on exit */
 	{ int d; for ( d = 0; d < 4; d++ ) if ( dir_down[d] ) push_cmd( s_dir_up_cmd[d] ); }
 	if ( fire_down ) push_cmd( "-attack" );
+	pad_release_game();
 	if ( f ) { f->grab_until = 0; munmap( (void *)f, sizeof( *f ) ); }
 	if ( fd >= 0 ) close( fd );
 	if ( lg ) fclose( lg );

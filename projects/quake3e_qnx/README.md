@@ -262,3 +262,12 @@ sound**, packaged as a **"Quake 3" launcher tile** (verified end-to-end: summon 
 launch → play with sound → BACK quits clean → HMI restored). `+devmap q3dm7` with
 bots renders at ~22 fps @1440×540. Supply the free Q3 demo `pak0.pk3` in
 `demoq3/`. The only open item is a cosmetic default-brightness tweak.
+
+## Gamepad
+
+With [evo_padd](../evo_padd/README.md) running and an Xbox controller connected the
+game is twin-stick: left stick moves, right stick looks, RT attacks, LT zooms, A jumps,
+B crouches, X uses the item, LB / RB / Y change weapon, View shows the scores, Menu
+opens the menu and the Xbox button pressed twice quits. In menus the stick or D-pad
+moves, A selects and B goes back. `EVO_Q3_PADLOOK=<percent>` scales the look speed.
+The pad is read in `qnx/qnx_input.c` (`pad_service`).

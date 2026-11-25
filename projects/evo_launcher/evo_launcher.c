@@ -66,6 +66,7 @@ static evo_context_t *g_ctx = NULL;
 static evo_display_t *g_disp = NULL;
 static struct evo_feed *g_feed = NULL;
 static unsigned int g_tail = 0;
+static int g_relaunch_page = 0;       /* an app just exited: come back to the page it was started from */
 static int g_state = 0;           /* 0 = hidden (watching for the combo), 1 = page shown */
 static unsigned g_cdown = 0;      /* center-down timestamp (0 = not pressed) */
 static int    g_daemon = 0;       /* resident daemon mode (clean-exit after a launch) */
@@ -234,6 +235,9 @@ static int feed_poll(void) {
             int d = (int)(signed char)e->b[0];
             move_sel(d > 0 ? 1 : (d < 0 ? -1 : 0));         /* one tile per detent */
         } else if (g_state && e->kind == EVO_K_CENTER && e->b[1]) ret = 2;   /* press = launch */
+        /* a gamepad's Xbox button (evo_padd sends it as BACK, marked in b[3]) opens the page
+         * too; the knob's own BACK stays the HMI's */
+        else if (!g_state && e->kind == EVO_K_BUTTON && e->b[1] && e->b[0] == 0x02 && e->b[3] == 0x58) ret = 1;
         else if (g_state && e->kind == EVO_K_BUTTON && e->b[1]) ret = 3;     /* back = close */
         g_tail++;
     }
@@ -314,7 +318,13 @@ static void launch(const char *cmd, const char *name) {
 
     /* 5) app gone: it hid nothing (we already had), so WE bring the OEM HMI back and go idle. */
     restore_hmi_idle();
-    printf("[LAUNCH] '%s' exited; HMI restored, back to hidden watch\n", name); fflush(stdout);
+    /* Everything pressed while the app ran was the app's input. Without this the ring's
+     * backlog is replayed here: any up/down from the game (or the gamepad's Xbox button
+     * that quit it) reads as a summon, so the page reopened or not depending on what
+     * was last pressed in the game. Drop the backlog; the caller reopens the page. */
+    if (g_feed) g_tail = g_feed->head;
+    g_relaunch_page = 1;
+    printf("[LAUNCH] '%s' exited; HMI restored\n", name); fflush(stdout);
 }
 
 /* ---------- the resident floating overlay: created ONCE, toggled transparent<->card ----------
@@ -422,7 +432,12 @@ int main(int argc, char **argv) {
                 else { printf("[LAUNCH] summon suppressed (not on Startmenu)\n"); fflush(stdout); }
             }
         } else {                                 /* shown: navigate / launch / dismiss */
-            if (act == 2) launch(g_tiles[g_sel].cmd, g_tiles[g_sel].name);  /* splash, run, resume */
+            if (act == 2) {
+                launch(g_tiles[g_sel].cmd, g_tiles[g_sel].name);            /* splash, run, resume */
+                /* back from the app: return to the page (same Startmenu gate as a summon) */
+                if (g_relaunch_page && daemon_mode && gate_allows_summon()) { reload_manifest_if_changed(); show_page(); }
+                g_relaunch_page = 0;
+            }
             else if (act == 3) { if (daemon_mode) { printf("[LAUNCH] dismiss\n"); fflush(stdout); hide_page(); }
                                  else g_running = 0; }
         }

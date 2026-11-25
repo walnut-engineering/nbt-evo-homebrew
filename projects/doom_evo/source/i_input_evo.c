@@ -518,6 +518,126 @@ static int ctrl_dir_key(int dir) {
     return 0;
 }
 
+// ============================================================================
+// GAMEPAD (evo_padd): twin-stick controls, read straight from the pad-state block
+// (shared/include/evo_pad.h) instead of the knob events the daemon mirrors into
+// the ring - those can only say "one direction" and "one detent".
+//
+//   game   left stick / D-pad  move + strafe (diagonals)     right stick  turn (analogue)
+//          RT or X  fire        A or B  use / open            LT  walk (runs by default)
+//          LB / RB  previous / next weapon                    Y or View  automap
+//          Menu  DOOM menu      Xbox  tap = menu, hold = quit to the launcher
+//   menu   stick / D-pad  move (repeats)   A  select ('y' on a prompt)
+//          B  back one level ('n' on a prompt)   Menu / Xbox tap  close
+// ============================================================================
+#include "evo_pad.h"
+#define PAD_DEAD_MOVE     12000   // stick travel before it counts as a direction
+#define PAD_DEAD_TURN     6000
+#define PAD_TURN_MAX      190     // ev_mouse dx per tic at full deflection (about the keyboard's fast turn)
+#define PAD_TRIGGER_ON    300     // of 1023
+#define PAD_QUIT_HOLD_MS  800
+#define PAD_REPEAT_FIRST_MS 350
+#define PAD_REPEAT_MS     140
+
+static const struct evo_pad *g_pad_blk = NULL;
+static unsigned int g_pad_retry = 0;
+static int g_pad_on = 0;                 // a pad is driving DOOM: its mirrored ring events are skipped
+static struct {
+    unsigned int btn;                    // buttons at the previous poll
+    int key[4];                          // move keys held: EVO_DIR_FWD, BACK, LEFT, RIGHT
+    int fire, use, run;
+    unsigned int guide_ms;               // Xbox button down since (0 = not down)
+    unsigned int turn_ms;                // last turn event
+    int nav_key; unsigned int nav_ms;    // menu direction being repeated
+} g_pd;
+
+static void pad_hold(int *held, int want, int key) {
+    if (want && !*held)      { ctrl_post_key(1, key); *held = 1; }
+    else if (!want && *held) { ctrl_post_key(0, key); *held = 0; }
+}
+static void pad_release_game(void) {
+    int d;
+    for (d = 0; d < 4; d++) pad_hold(&g_pd.key[d], 0, ctrl_dir_key(d));
+    pad_hold(&g_pd.fire, 0, key_fire);
+    pad_hold(&g_pd.use, 0, key_use);
+    pad_hold(&g_pd.run, 0, key_speed);
+}
+
+static void ctrl_service_pad(unsigned int now, int in_menu) {
+    unsigned int b, pressed, released;
+    int lx, ly, rx, lt, rt, want[4], d;
+
+    if (!g_pad_blk) {                               // the daemon may start after DOOM
+        if (g_pad_retry && (int)(now - g_pad_retry) < 1000) return;
+        g_pad_retry = now | 1u;
+        g_pad_blk = evo_pad_open();
+        if (!g_pad_blk) return;
+    }
+    if (!evo_pad_alive(g_pad_blk) || !g_pad_blk->pad[0].connected) {
+        if (g_pad_on) { pad_release_game(); g_pad_on = 0; }
+        return;
+    }
+    b = g_pad_blk->pad[0].buttons;
+    lx = g_pad_blk->pad[0].lx; ly = g_pad_blk->pad[0].ly; rx = g_pad_blk->pad[0].rx;
+    lt = (int)g_pad_blk->pad[0].lt; rt = (int)g_pad_blk->pad[0].rt;
+    if (!g_pad_on) {                                // just appeared: what is held now is not a new press
+        memset(&g_pd, 0, sizeof g_pd);
+        g_pd.btn = b;
+        g_pad_on = 1;
+    }
+    pressed = b & ~g_pd.btn; released = g_pd.btn & ~b; g_pd.btn = b;
+
+    // Xbox button: hold = leave DOOM, tap = menu
+    if (pressed & EVO_PAD_GUIDE) g_pd.guide_ms = now | 1u;
+    if (g_pd.guide_ms && (b & EVO_PAD_GUIDE) && (int)(now - g_pd.guide_ms) >= PAD_QUIT_HOLD_MS) {
+        g_pd.guide_ms = 0;
+        pad_release_game();
+        g_ctrl_quit = 1;                            // I_Quit runs on the main thread
+        return;
+    }
+    if (released & EVO_PAD_GUIDE) { if (g_pd.guide_ms) ctrl_tap_key(KEY_ESCAPE); g_pd.guide_ms = 0; }
+    if (pressed & EVO_PAD_MENU) ctrl_tap_key(KEY_ESCAPE);
+
+    want[EVO_DIR_FWD]   = (b & EVO_PAD_UP)    || ly >  PAD_DEAD_MOVE;
+    want[EVO_DIR_BACK]  = (b & EVO_PAD_DOWN)  || ly < -PAD_DEAD_MOVE;
+    want[EVO_DIR_LEFT]  = (b & EVO_PAD_LEFT)  || lx < -PAD_DEAD_MOVE;
+    want[EVO_DIR_RIGHT] = (b & EVO_PAD_RIGHT) || lx >  PAD_DEAD_MOVE;
+
+    if (in_menu) {
+        int nav = want[EVO_DIR_FWD] ? KEY_UPARROW : want[EVO_DIR_BACK] ? KEY_DOWNARROW :
+                  want[EVO_DIR_LEFT] ? KEY_LEFTARROW : want[EVO_DIR_RIGHT] ? KEY_RIGHTARROW : 0;
+        pad_release_game();
+        if (nav != g_pd.nav_key) { g_pd.nav_key = nav; if (nav) { ctrl_tap_key(nav); g_pd.nav_ms = now + PAD_REPEAT_FIRST_MS; } }
+        else if (nav && (int)(now - g_pd.nav_ms) >= 0) { ctrl_tap_key(nav); g_pd.nav_ms = now + PAD_REPEAT_MS; }
+        if (pressed & EVO_PAD_A) ctrl_tap_key(messageToPrint ? 'y' : KEY_ENTER);
+        if (pressed & EVO_PAD_B) ctrl_tap_key(messageToPrint ? 'n' : KEY_BACKSPACE);
+        return;
+    }
+    g_pd.nav_key = 0;
+
+    for (d = 0; d < 4; d++) pad_hold(&g_pd.key[d], want[d], ctrl_dir_key(d));
+    pad_hold(&g_pd.fire, rt > PAD_TRIGGER_ON || (b & EVO_PAD_X), key_fire);
+    pad_hold(&g_pd.use, (b & (EVO_PAD_A | EVO_PAD_B)) != 0, key_use);
+    pad_hold(&g_pd.run, lt <= PAD_TRIGGER_ON, key_speed);          // run unless LT is held
+    if (pressed & EVO_PAD_RB) ctrl_weapon_cycle(+1);
+    if (pressed & EVO_PAD_LB) ctrl_weapon_cycle(-1);
+    if (pressed & (EVO_PAD_Y | EVO_PAD_VIEW)) ctrl_tap_key(KEY_TAB);
+
+    // right stick: one mouse event per tic, squared response (fine aim near the centre)
+    if ((int)(now - g_pd.turn_ms) >= 25) {
+        int a = rx < 0 ? -rx : rx;
+        if (a > PAD_DEAD_TURN) {
+            int v = (a - PAD_DEAD_TURN) * 1000 / (32767 - PAD_DEAD_TURN);     // 0..1000
+            int dx = v * v / 1000 * PAD_TURN_MAX / 1000;
+            event_t e2; memset(&e2, 0, sizeof e2);
+            if (dx < 1) dx = 1;
+            e2.type = ev_mouse; e2.data2 = rx < 0 ? -dx : dx;
+            queue_event(&g_input_ctx.event_queue, &e2);
+        }
+        g_pd.turn_ms = now;
+    }
+}
+
 static void *controller_thread_func(void *arg) {
     (void)arg;
     const char *e = getenv("DOOM_CTRL_TURN");
@@ -563,6 +683,7 @@ static void *controller_thread_func(void *arg) {
                 }
                 in_menu = m;
             }
+            ctrl_service_pad(now, in_menu);          // gamepad, if one is connected
             { int d; for (d = 0; d < 4; d++)           // deferred tilt releases (minimum hold)
                 if (dir_pending[d] && (int)(now - dir_release_at[d]) >= 0) { ctrl_post_key(0, ctrl_dir_key(d)); dir_down[d] = 0; dir_pending[d] = 0; } }
             if (turn_acc && (int)(now - last_turn_ms) >= 25) {   // one mouse event per tic with the summed detents
@@ -583,6 +704,7 @@ static void *controller_thread_func(void *arg) {
         while (tail != head) {
             struct evo_ev ev = feed->ev[tail % EVO_FEED_RING];
             tail++;
+            if (g_pad_on && ev.b[3] == EVO_PAD_FEED_MARK) continue;   // the pad's mirrored knob events: handled directly above
             switch (ev.kind) {
                 case EVO_K_ROTARY: {
                     int d = (signed char)ev.b[0];
@@ -666,6 +788,7 @@ static void *controller_thread_func(void *arg) {
     if (fire_down) ctrl_post_key(0, key_fire);
     if (use_down) ctrl_post_key(0, key_use);
     if (run_on) ctrl_post_key(0, key_speed);
+    pad_release_game();
     if (feed) { feed->grab_until = 0; munmap((void *)feed, sizeof(struct evo_feed)); }   // controller back to the HMI
     if (ffd >= 0) close(ffd);
     if (lg) fclose(lg);
@@ -823,7 +946,7 @@ void I_GetEvents(void) {
     }
     if (g_ctrl_quit) {                      // BACK pressed on the iDrive controller: quit from the main thread
         g_ctrl_quit = 0;
-        printf("INPUT: quitting (iDrive BACK pressed)\n");
+        printf("INPUT: quitting (iDrive BACK pressed / gamepad Xbox button held)\n");
         I_Quit();
     }
     
