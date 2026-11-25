@@ -7,9 +7,9 @@ full-screen apps on: a resident **launcher** draws a tile page over the live
 OEM HMI, you summon it with the iDrive knob, pick a tile, and your app owns the
 screen until you press **BACK** — no OEM firmware changes, no flashing.
 
-Yes, it runs **DOOM**. It also runs Quake 3, a shell, a system monitor and a
-live GPS readout — and adding your own app is a 3-line Makefile and a one-line
-descriptor.
+Yes, it runs **DOOM**. It also runs Quake 3, NES, SNES and Genesis emulators
+(with Xbox controllers), a shell, a system monitor and a live GPS readout — and
+adding your own app is a 3-line Makefile and a one-line descriptor.
 
 ![The homebrew launcher floating over the live HMI — DOOM, Quake 3, Terminal, System and GPS](docs/images/launcher.png)
 
@@ -35,6 +35,10 @@ descriptor.
 - **Drop-in apps** — each app is a folder with a source file, a 3-line Makefile
   and an `app.desc`; one command builds everything and pushes it to the unit, and
   the launcher hot-reloads the tile list on the next summon.
+- **Gamepads** — a small daemon ([`projects/evo_padd`](projects/evo_padd)) drives
+  the Xbox One Wireless Adapter, so the launcher, the games and the emulators take
+  Xbox controllers (sticks, triggers, two players in the emulators). The iDrive
+  knob and a USB keyboard keep working beside them.
 - **Talk to the car's own services** — a bundled DSI client
   ([`projects/nbt-dsi-toolkit`](projects/nbt-dsi-toolkit)) resolves and calls the
   unit's internal services, so apps can read live GPS position, navigation state
@@ -46,6 +50,9 @@ descriptor.
 |------|------------|
 | **DOOM** | The shareware game, running on the head unit with sound out the car speakers; iDrive BACK quits, the knob/5-way drives it. (Bring your own `doom1.wad`.) |
 | **Quake 3** | ioquake3 / quake3e port on the PowerVR GPU via GLES2. (Bring your own `pak0.pk3`.) |
+| **NES** | NES emulator (Nofrendo core): ROM picker, sound, two players. (Bring your own ROMs.) |
+| **SNES** | Super Nintendo emulator (Snes9x 2010 core behind our own frontend): four picture fits, battery saves, save states, zipped games, a settings page. (Bring your own ROMs.) |
+| **Genesis** | Sega Genesis / Mega Drive, Master System and Game Gear (Genesis Plus GX core, same frontend). (Bring your own ROMs.) |
 | **Terminal** | A real QNX shell on the car screen (BACK exits — no keyboard needed). |
 | **System** | Live system monitor: CPU cores + clock, per-core temperature, RAM used/free, process & thread counts, load and uptime, top processes — all via native QNX syscalls. |
 | **GPS** | Live latitude/longitude read from the navigation positioning engine over DSI. |
@@ -57,7 +64,9 @@ descriptor.
 ## Install the prebuilt binaries
 
 Don't want to cross-compile? The [**latest release**](../../releases/latest) ships
-prebuilt ARM/QNX binaries for all five tiles plus an on-unit installer. On the unit
+prebuilt ARM/QNX binaries for five tiles (DOOM, Quake 3, Terminal, System, GPS)
+plus an on-unit installer. The NES, SNES and Genesis tiles and the Xbox controller
+daemon are newer than that release: build them from source for now. On the unit
 (a root shell, or run it straight off a USB stick — it mounts as `/fs/sda1`):
 
 ```sh
@@ -82,7 +91,7 @@ shaders, no OEM app slots — just a layer of our own and the framebuffer.
 
 ## What you supply yourself
 
-This repo is **source only**. Three things are not included — bring them from
+This repo is **source only**. These things are not included — bring them from
 your own setup:
 
 - **The QNX 6.5 SDP** — the cross-compiler (see [Toolchain setup](#toolchain-setup)).
@@ -95,7 +104,15 @@ your own setup:
     (only for DSI apps such as GPS). See
     [`projects/nbt-dsi-toolkit/NOTICE`](projects/nbt-dsi-toolkit/NOTICE).
 - **Game data** — DOOM needs a WAD (`doom1.wad`; shareware is fine) and Quake 3
-  needs `pak0.pk3`. No game assets are shipped.
+  needs `pak0.pk3`. The emulators play your own ROM files (and, for Sega CD, your
+  own BIOS file). No game assets are shipped.
+- **The emulator cores** — Snes9x and Genesis Plus GX are under non-commercial
+  licences, so they are not in this repository;
+  [`projects/evo_retro/cores.sh`](projects/evo_retro/cores.sh) fetches them at
+  pinned commits when you build.
+- **The Xbox adapter's firmware** — Microsoft's, fetched from Windows Update by
+  [`projects/evo_padd/fetch_firmware.sh`](projects/evo_padd/fetch_firmware.sh) on
+  your PC. Only needed for gamepads.
 
 ## Toolchain setup
 
@@ -169,7 +186,7 @@ and redeploying.
 ```
 shared/evo_graphics_lib/   software ILM/Screen framebuffer library (all apps use it)
 shared/app.mk              one build profile for every app (3-line project Makefiles)
-shared/include/            shared app headers (input, font, feed ring, HMI state)
+shared/include/            shared app headers (input, font, feed ring, HMI state, gamepad state)
 projects/                  the apps + supporting tools
   evo_launcher/              the resident launcher (tile page, summon, scroll, theming)
   evo_terminal/ evo_sysmon/  Terminal + System tiles
@@ -179,6 +196,9 @@ projects/                  the apps + supporting tools
   evo_hmistate/              Startmenu detector for the summon gate
   doom_evo/                  DOOM engine + controller/sound/launch glue
   quake3e_qnx/               Quake 3 (ioquake3/quake3e) QNX/GLES2 port patches + glue
+  evo_nes/                   NES tile (vendored Nofrendo core + QNX port)
+  evo_retro/                 SNES + Genesis tiles (libretro frontend; cores fetched at build)
+  evo_padd/                  Xbox wireless controller daemon + test tools
   nbt-dsi-toolkit/           bundled DSI client + service tools (talk to unit services)
 launcher_sdk/              template app + guide for writing your own
 scripts/                   gen_manifest.sh, deploy.sh, evo_env.sh (connection/config)
@@ -201,6 +221,19 @@ The code here is a mix:
 - **[`projects/quake3e_qnx/`](projects/quake3e_qnx)** — patches and QNX glue for
   ioquake3 / quake3e, **GPL-2.0** (see [`COPYING`](projects/quake3e_qnx/COPYING));
   the upstream engine is fetched separately by the build scripts.
+- **[`projects/evo_padd/`](projects/evo_padd)** — the Xbox controller daemon, a
+  port of xow, **GPL-2.0-or-later** (see [`COPYING`](projects/evo_padd/COPYING)).
+  The adapter's firmware is Microsoft's and is not included.
+- **[`projects/evo_nes/nofrendo/`](projects/evo_nes/nofrendo)** — the Nofrendo NES
+  core, **LGPL** (see [`COPYING.LGPL`](projects/evo_nes/nofrendo/COPYING.LGPL));
+  the changes made for this unit are listed in
+  [`QNX_PATCHES.md`](projects/evo_nes/nofrendo/QNX_PATCHES.md).
+- **[`projects/evo_retro/`](projects/evo_retro)** — the frontend is original work
+  (MIT) and `libretro.h` is MIT. The cores it links, **Snes9x** and **Genesis Plus
+  GX**, are fetched at build time and are free to use and share **non-commercially
+  only**, so a built `evo_snes` or `evo_genesis` may only be passed on
+  non-commercially, with the cores' licence files (see the project's
+  [README](projects/evo_retro/README.md#licences)).
 - **[`projects/nbt-dsi-toolkit/dsi_sdk/`](projects/nbt-dsi-toolkit/dsi_sdk)** —
   Harman's DSI reference implementation, **MPL-2.0** (see
   [`LICENSE`](projects/nbt-dsi-toolkit/dsi_sdk/LICENSE)); headers kept in-tree.

@@ -39,7 +39,7 @@ exist on every NBT unit. For DSI apps (the **GPS** tile, `USE_DSI=1`), copy them
 off your own unit into that directory. See
 [`projects/nbt-dsi-toolkit/NOTICE`](projects/nbt-dsi-toolkit/NOTICE).
 
-(All non-DSI tiles — DOOM, Quake 3, Terminal, System — build without these.)
+(All non-DSI tiles — DOOM, Quake 3, the emulators, Terminal, System — build without these.)
 
 ### DOOM / Quake extras
 The **DOOM** and **Quake 3** tiles have their own engines + build scripts and
