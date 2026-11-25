@@ -1,121 +1,44 @@
-# evo_retro — SNES and Sega Genesis
+# evo_retro — the frontend behind the SNES and Genesis tiles
 
-Two launcher tiles, **SNES** and **Genesis**, that play your own ROM files on the
-head unit with an Xbox controller (through [evo_padd](../evo_padd/README.md)), the
-iDrive knob or a USB keyboard, with sound out of the car's speakers, battery saves,
-save states and a choice of how the picture fills the wide panel.
+A small **libretro frontend** for the head unit: the part of an emulator that is
+not emulation — the picture on the 1440×540 panel, sound out of the car's speakers,
+gamepad / knob / keyboard input, the ROM list, the in-game menu and its settings,
+battery saves and save states. *libretro* is the interface most emulator cores
+share (load a game, run one frame, hand over a picture and a block of sound, ask
+for buttons), so one frontend serves every core that speaks it.
 
-They are one program built twice: a small frontend of our own (this directory)
-linked with an existing emulator core — Snes9x 2010 for the SNES, Genesis Plus GX
-for the Genesis (which also plays Master System and Game Gear ROMs). The frontend
-speaks *libretro*, the interface most emulator cores share, so another system is
-another core, not another port.
+This folder is the shared code only; it makes no tile by itself. Each system is its
+own project folder that links these sources with one emulator core into one binary:
 
-No games, no BIOS files and no emulator cores are in this repository: ROMs are
-yours to supply, and the cores are fetched when you build (see [Licences](#licences)).
+| Tile | Folder | Core | Binary |
+|---|---|---|---|
+| **SNES** | [`../evo_snes`](../evo_snes/README.md) | Snes9x 2010 | `evo_snes` |
+| **Genesis** (also Master System, Game Gear, Sega CD) | [`../evo_genesis`](../evo_genesis/README.md) | Genesis Plus GX | `evo_genesis` |
 
-## Controls
-
-| | SNES | Genesis |
-|---|---|---|
-| D-pad or left stick | D-pad, with diagonals | D-pad, with diagonals |
-| A / B / X / Y | B / A / Y / X — the same positions as on an SNES pad | B / C / A / Y |
-| LB / RB | L / R | X / Z |
-| Menu / View | Start / Select | Start / Mode |
-| **Xbox button** | the in-game menu | the in-game menu |
-| second pad | player 2 | player 2 |
-
-The in-game menu pauses the game: **Resume**, **Save state**, **Load state** (four
-slots per game, left / right or LB / RB to choose), **Settings**, **Reset the
-console**, **Change game** (back to the list) and **Quit** (back to the launcher).
-In the menu and the ROM list, A chooses and B goes back; LB / RB page through a
-long list.
-
-Without a gamepad the basics still work:
-
-| | iDrive | USB keyboard |
-|---|---|---|
-| D-pad (one direction at a time on the knob) | tilt | arrows |
-| bottom / right / left / top button | press / OPTION / MEDIA / – | Z / X / A / S |
-| L / R | – | Q / W |
-| Start / Select | NAV / TEL | Enter / Tab |
-| menu | BACK | Esc |
-| move in a list or menu | rotate or tilt | arrows |
-
-MENU on the iDrive controller is left alone, as in the other tiles.
-
-## Settings
-
-**Settings** in the in-game menu; left / right change a value and it applies at
-once (the page sits at the left edge so the picture stays in view while you change
-its fit).
-
-| Setting | Values (the first is the default) |
-|---|---|
-| Picture | **Sharp 2x** — whole-number scale, every pixel the same size (SNES 512×448, Genesis 640×448) · **Full height** — all 540 rows, square pixels (617 / 771 wide) · **TV 4:3** — all 540 rows, 720 wide, the shape of the TV these consoles were made for · **Wide 16:9** — 960 wide, stretched |
-| Sound level | 300 %, in steps from 50 % to 600 % |
-| Controller (Genesis) | Auto (what each game was made for) · 3 buttons · 6 buttons |
-| Region | Auto · USA / Europe / Japan (Genesis) or NTSC 60 Hz / PAL 50 Hz (SNES). Takes effect after **Reset the console** |
-| Sprite limit | On (as the console) · Off (no flicker when many sprites share a line) |
-| Less slowdown (SNES) | Off · Light · Medium · Most — a faster console processor; can upset some games |
-| Super FX speed (SNES) | Normal · 1.5x · 2x · 4x — for Super FX cartridges |
-
-They are kept in `settings.txt` in the system's folder (`/fs/sda1/evo/snes/` or
-`.../genesis/`), plain `key = value` lines. A line the menu does not know is handed
-to the emulator core as one of its own options and kept when the menu rewrites the
-file, so any other core option can be set by hand — for example
-`genesis_plus_gx_audio_filter = low-pass`. The sound level lives in
-`/fs/sda1/evo/snes_gain` (or `genesis_gain`), the file the launch script reads.
-
-The three full-height fits are not whole-number scales, so they blend the one-pixel
-seams between source pixels ("sharp bilinear"): slightly softer than Sharp 2x, with
-even scrolling.
-
-## Games, saves, sound
-
-- Put ROM files in **`/fs/sda1/evo/snes/`** (`.sfc .smc .swc .fig`) and
-  **`/fs/sda1/evo/genesis/`** (`.md .smd .gen .bin`, plus `.sms .gg .sg` for the
-  8-bit Sega systems). Plain files or zipped, one game per `.zip` (the first game
-  found in the archive is the one played).
-- **Sega CD** (in the Genesis tile): a `.cue` file with its track files beside it,
-  or an `.iso`. It needs the console's BIOS, which you supply: `bios_CD_U.bin`,
-  `bios_CD_E.bin` or `bios_CD_J.bin` in `/fs/sda1/evo/genesis/system/`. Track files
-  named by a `.cue` are left off the list, so a disc shows once. See
-  [Limits](#limits): this path is wired up but has not been run with a BIOS.
-- Saves live in a `saves` folder beside the games. The cartridge's battery memory
-  is `<game>.srm`, written about a second after the game changes it (a car can lose
-  power at any moment) and again when you pause or quit. Save states are
-  `<game>.st1` … `.st4`.
-- Sound level: in Settings. The default is 300 % because the unit attenuates this
-  sound source; a soft limiter rounds off the loudest passages instead of clipping
-  them.
+Controls, settings, where the games go and the limits of each system are in the
+tile's own README. This file covers what they share and how it is built.
 
 ## Build
 
 ```sh
-cd projects/evo_retro
-./build.sh                 # fetches + builds the cores once, then both binaries
-python3 make_icons.py      # snes.rgba / genesis.rgba (original controller glyphs)
+make -C projects/evo_snes         # -> bin/evo_snes
+make -C projects/evo_genesis      # -> bin/evo_genesis
+./projects/evo_retro/build.sh     # both
 ```
 
-`build.sh` is `./cores.sh` (the cores at pinned commits, compiled with the unit's
-toolchain into `build/evo_retro/libretro_*.a`, about a minute) followed by
-`make SYSTEM=genesis` and `make SYSTEM=snes` → `bin/evo_genesis`, `bin/evo_snes`.
-After a change to the frontend only, the two `make` lines are enough.
+A tile's Makefile is three lines (`APP`, `SYSTEM`, `include ../evo_retro/retro.mk`).
+[`retro.mk`](retro.mk) compiles the frontend with `-DEVO_RETRO_<SYSTEM>` and links
+it with the tile's core library, `build/evo_retro/libretro_<name>.a`. That library
+comes from the tile's own `core.sh`, which fetches the core at a pinned commit and
+compiles it with the unit's toolchain; `make` runs it when the library is missing.
+The fetch, compile and archive steps the two `core.sh` scripts share are in
+[`core_common.sh`](core_common.sh). No emulator core is in this repository (see
+[Licences](#licences)).
 
-`./scripts/deploy.sh evo_retro` pushes both binaries, their launch scripts and
-icons, and regenerates the launcher manifest. The tiles are described by
-[`app.snes.desc`](app.snes.desc) and [`app.genesis.desc`](app.genesis.desc) (one
-project, two tiles).
+## Run and test
 
-## Run
-
-The launcher tiles run [`target/snes_launch.sh`](target/snes_launch.sh) and
-[`target/genesis_launch.sh`](target/genesis_launch.sh), which set the audio library
-path and restore the BMW screen if the emulator crashes. Logs:
-`/dev/shmem/snes_launch_stdout.log`, `/dev/shmem/genesis_launch_stdout.log`.
-
-By hand, `./evo_snes /fs/sda1/evo/snes/game.sfc` skips the list. For testing:
+A tile's binary takes an optional ROM path (`./evo_snes /fs/sda1/evo/snes/game.sfc`
+skips the list). For testing:
 
 | Environment | Does |
 |---|---|
@@ -139,15 +62,18 @@ script without a controller in hand.
 | [`retro_ui.c`](retro_ui.c) | the ROM list, the in-game menu and its settings page |
 | [`retro_opts.c`](retro_opts.c) | the settings: their values, `settings.txt`, what the core is told |
 | [`retro_zip.c`](retro_zip.c) | one game out of a `.zip` (its own small inflate; no library needed on the unit) |
-| [`cores.sh`](cores.sh), [`patches/`](patches) | fetch, patch and build the cores |
+| [`retro_fe.h`](retro_fe.h) | shared declarations, and each system's names, folder and file extensions |
 | [`libretro.h`](libretro.h) | the interface header (MIT, from libretro-common) |
+| [`retro.mk`](retro.mk), [`core_common.sh`](core_common.sh) | the build rules and core-building steps the tiles share |
 | [`spike/`](spike) | the headless benchmark used to choose the cores |
 
 **Picture.** Scaled by the frontend in one pass per frame, to the fit chosen in
-Settings. Sharp 2x repeats pixels exactly (the Genesis' narrower 256-pixel mode is
-stretched to the same 640, as on a TV); the full-height fits blend only the
-one-pixel seams. Frames are written straight into the display's off-screen buffer —
-only the picture area, not the whole panel — through two calls added to
+Settings: Sharp 2x, Full height, TV 4:3 or Wide 16:9. Sharp 2x repeats pixels
+exactly (the Genesis' narrower 256-pixel mode is stretched to the same 640, as on a
+TV); the three full-height fits are not whole-number scales, so they blend the
+one-pixel seams between source pixels ("sharp bilinear"): slightly softer, with even
+scrolling. Frames are written straight into the display's off-screen buffer — only
+the picture area, not the whole panel — through two calls added to
 `evo_graphics_lib` (`evo_display_direct_begin` / `_post`). Writing into that buffer
 is what costs: about 2 ms per megabyte on this unit, so the cost of a fit is mostly
 its size. (A second thread on the other CPU core was tried for the big fits and
@@ -158,6 +84,14 @@ The picture is paced by a timer at the console's own frame rate; the sound is
 resampled to the device's 44,100 Hz and its ratio nudged by at most half a percent
 to keep a small buffer (about 30 ms) from running dry or filling up. A separate
 thread feeds the device, so a slow frame cannot stall it.
+
+**Saves.** The cartridge's battery memory is written about a second after the game
+changes it (a car can lose power at any moment) and again on pause and quit, through
+a temporary file and a rename. Save states are four slots per game.
+
+**Settings.** Kept as plain `key = value` lines in `settings.txt` in the system's
+folder. Lines the menu does not know are handed to the core as its own options and
+kept when the menu rewrites the file.
 
 **Timing on the bench unit** (2 × Cortex-A15, 1.5 GHz; one 60 Hz frame is 16.7 ms).
 Emulation plus picture, per frame:
@@ -174,40 +108,42 @@ commercial-game runs was 17 ms at Sharp 2x and 19 ms at TV 4:3, with at most two
 frames in 1,200 over a frame's time (the first frames after loading among them),
 and the sound never ran dry in any run without the screenshot aid.
 
+## Adding a system
+
+Another console is another core, not another port:
+
+1. Copy a tile folder (say `evo_genesis`) to `projects/evo_<system>`; set `APP` and
+   `SYSTEM` in its Makefile, the name / script / icon in `app.desc`, and the names in
+   `target/<system>_launch.sh`.
+2. In its `core.sh`, give the core's repository, a pinned commit and its source list.
+3. In [`retro_fe.h`](retro_fe.h), add the system's block (title, ROM folder, file
+   extensions); in [`retro_opts.c`](retro_opts.c), the core options worth a line in
+   Settings. A system's quirks (the Genesis' Sega CD handling, for example) sit
+   behind `#if defined(EVO_RETRO_<SYSTEM>)` in the frontend.
+
+The reasoning behind the design, and what was measured before it was built, is in
+[`PLAN.md`](PLAN.md).
+
 ## Limits
 
-- Tested from scripts and screenshots, with measured sound statistics. How it
-  feels to play and how it sounds have not yet been judged by a person.
-- **Sega CD has not been run.** The list, the hidden track files and the "needs a
-  BIOS" message are checked; loading an actual disc needs a BIOS file, which this
-  project cannot supply. Known gaps before trying: `.chd` images and compressed
-  (MP3 / OGG) audio tracks are not built into the core, and a disc's backup memory
-  is written by the core only when the game is left, not a second after it changes.
-- **SNES cartridges with extra processors** are unproven with real games. The Super
-  FX's arithmetic passes its test ROMs on the unit, but two synthetic Super FX
-  drawing demos ran at 70 % speed and drew wrongly, which may be those demos or may
-  be the emulation under full load. SA-1 has not been tried. If a game is too slow:
-  Settings > Super FX speed, or Snes9x 2005 (`./cores.sh snes2005`) as the lighter
-  core.
+- Tested from scripts and screenshots, with measured sound statistics. How it feels
+  to play and how it sounds have not yet been judged by a person.
 - The settings page is reached from the in-game menu only, not from the ROM list.
 - A `.zip` is read whole into memory; that suits cartridges, not CD images.
 - The in-game menu's panel is as wide as the Sharp 2x picture, so in that fit the
   dimmed game behind it is hidden.
+- What each system cannot do yet (SNES special chips, Sega CD) is in the tiles'
+  READMEs.
 
 ## Licences
 
-The frontend in this directory is this project's own code. `libretro.h` is MIT.
+The frontend in this directory is this project's own code (MIT). `libretro.h` is MIT.
 
 The cores are **not** free software in the usual sense: **Snes9x** and **Genesis
 Plus GX** may be used and redistributed free of charge but **not commercially**,
-and modified versions must come with their source. That is why they are not in
-this repository — `cores.sh` fetches them from their upstream repositories at
-pinned commits and applies [`patches/`](patches) — and why a binary of `evo_snes`
-or `evo_genesis` may only be passed on non-commercially, with that notice and the
+and modified versions of Genesis Plus GX must come with their source. That is why
+they are not in this repository — each tile's `core.sh` fetches its core from the
+upstream repository at a pinned commit — and why a binary of `evo_snes` or
+`evo_genesis` may only be passed on non-commercially, with that notice and the
 cores' own licence files. Commercial ROMs and BIOS images are never part of this
-project.
-
-The two patches: Snes9x 2010's sound code reads 16-bit values at odd addresses,
-which this CPU refuses (two macros made byte-wise), and it uses a GCC atomic helper
-that does not exist for this toolchain ([`patches/sync_shim.c`](patches/sync_shim.c)).
-Genesis Plus GX builds unmodified.
+project. The frontend itself contains no GPL code.

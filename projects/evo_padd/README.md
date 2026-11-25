@@ -118,7 +118,7 @@ When an app exits you are back on the page.
 
 A second controller is player 2.
 
-**SNES and Genesis** ([evo_retro](../evo_retro/README.md))
+**SNES and Genesis** ([evo_snes](../evo_snes/README.md), [evo_genesis](../evo_genesis/README.md))
 
 | Pad | SNES | Genesis |
 |---|---|---|

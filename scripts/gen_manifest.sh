@@ -8,8 +8,7 @@
 #   ./scripts/gen_manifest.sh            # write build/launcher.manifest + print
 #
 # Add a tile = drop an app.desc in a project. Remove = delete it or set
-# enabled = 0. No central file to hand-edit. A project that makes more than one
-# tile names its descriptors app.<something>.desc (see projects/evo_retro).
+# enabled = 0. No central file to hand-edit.
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/evo_env.sh"
@@ -19,7 +18,7 @@ tmp="$BUILD_DIR/.manifest.tmp.$$"
 : > "$tmp"
 
 n=0
-for desc in "$PROJECTS"/*/app.desc "$PROJECTS"/*/app.*.desc; do
+for desc in "$PROJECTS"/*/app.desc; do
   [ -f "$desc" ] || continue
   read_desc "$desc"
   [ "$D_enabled" = "0" ] && continue

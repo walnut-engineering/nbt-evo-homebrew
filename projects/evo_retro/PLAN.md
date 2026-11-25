@@ -1,5 +1,10 @@
 # evo_retro — SNES and Sega Genesis on the head unit (plan and status)
 
+*Layout since 2026-11-25:* this folder is the shared frontend; each tile has its own
+project folder, [`../evo_snes`](../evo_snes/README.md) and
+[`../evo_genesis`](../evo_genesis/README.md), with its descriptor, icon, launch
+script and the `core.sh` that fetches and builds its core.
+
 Goal: two new launcher tiles, **SNES** and **Genesis**, that play your own ROMs with an
 Xbox controller (via [evo_padd](../evo_padd/README.md)), sound through the car's
 speakers, saves that survive a power cycle.
@@ -8,8 +13,8 @@ speakers, saves that survive a power cycle.
 scripts (simulated pad, screenshots, timing and sound statistics); both tiles are in
 the launcher. Not yet done: a person playing it (feel, sound by ear), a save that
 has to survive the 12 V supply being cut (a reset of the unit is checked), a Sega CD
-game (needs a BIOS file), a real special-chip SNES game, and a binary release. How
-to use and build it is in the [README](README.md); this file keeps the reasoning.
+game (needs a BIOS file) and a real special-chip SNES game. How to use and build
+each tile is in its own README; this file keeps the reasoning.
 
 ## The approach: one frontend, plug-in cores
 
@@ -49,8 +54,8 @@ has 16.7 ms.
 | Genesis | **Genesis Plus GX** 1.7.4 | yes, unmodified | 2.15 ms | 13 % |
 
 All three rendered correct frames on the unit (checked by pulling a frame back to the
-host). `cores.sh` reproduces the builds from pinned upstream commits and
-`spike/build_bench.sh` links the benchmark against them.
+host). The tiles' `core.sh` scripts reproduce the builds from pinned upstream
+commits and `spike/build_bench.sh` links the benchmark against them.
 
 **What this does and does not show.** The test ROM was the free *240p Test Suite*
 sitting on its menu: CPU and sound emulation run at full rate, but the picture is
@@ -62,9 +67,9 @@ games are unmeasured until a real ROM is tried.
 
 - Snes9x 2010's sound code reads 16-bit values at odd addresses, which this CPU
   refuses (the same alignment fault the NES and Quake ports hit). Fix: two macros made
-  byte-wise ([patches/snes9x2010-unaligned-apu.patch](patches/snes9x2010-unaligned-apu.patch)).
+  byte-wise ([snes9x2010-unaligned-apu.patch](../evo_snes/patches/snes9x2010-unaligned-apu.patch)).
 - It also uses a GCC atomic builtin that this toolchain turns into a call to a helper
-  that does not exist on QNX/ARM. Fix: [patches/sync_shim.c](patches/sync_shim.c).
+  that does not exist on QNX/ARM. Fix: [sync_shim.c](../evo_snes/patches/sync_shim.c).
 - Genesis Plus GX already has a switch for strict-alignment CPUs (`-DALIGN_LONG`) and
   needed nothing else.
 - Neither core needs C++ or anything newer than C99, which matters: gcc 4.4.2 rules
@@ -126,7 +131,7 @@ lets the pad paths be tested from a script.
    A save state made before a reset of the unit was byte-identical afterwards and
    loaded (2026-11-24). *Not checked:* the 12 V supply cut right after a save, which
    is the case the one-second write is there for.
-5. **Polish — done (2026-11-24); release — open.**
+5. **Polish — done (2026-11-24); release — done (2026-11-25).**
    - *Picture fits:* Sharp 2x, Full height, TV 4:3, Wide 16:9, chosen in a Settings
      page of the in-game menu and shown live behind it. *Checked:* every fit against
      pixel tests on the host (exact repetition at 2x, nothing written outside the
@@ -145,8 +150,9 @@ lets the pad paths be tested from a script.
      BIOS is missing. *Not checked:* an actual disc — there is no BIOS here.
    - *Also:* a file too small to be a game is refused (Genesis Plus GX "runs" a
      2-byte file as a black screen), and a failed load says why.
-   - *Open:* a binary release. One that bundles the cores is non-commercial and has
-     to carry their licence files.
+   - *Release:* the source is in the public repository and both tiles are in the
+     binary release of 2026-11-25, which is marked non-commercial and carries the
+     cores' licence files and source.
 
 ## What milestone 5 found
 

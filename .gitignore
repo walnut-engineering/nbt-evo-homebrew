@@ -75,5 +75,6 @@ FW_ACC_*.bin
 projects/evo_padd/*.bin
 projects/evo_padd/*.cab
 # emulator cores (Snes9x, Genesis Plus GX: non-commercial licences) are fetched at build
-# time by projects/evo_retro/cores.sh and never committed
-projects/evo_retro/cores/
+# time by each tile's core.sh and never committed
+projects/evo_snes/core/
+projects/evo_genesis/core/

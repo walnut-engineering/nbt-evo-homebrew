@@ -1,11 +1,12 @@
 /* retro_fe.h - shared declarations for the evo_retro frontend.
  *
  * evo_retro is a small libretro frontend for the NBT EVO head unit: one binary per
- * system, the frontend statically linked with one emulator core (see cores.sh). The
- * system is chosen at compile time:
+ * system, the frontend statically linked with one emulator core. Each system is its
+ * own project folder (Makefile, core.sh, tile descriptor, launch script) that builds
+ * these sources through retro.mk; the system is chosen at compile time:
  *
- *   -DEVO_RETRO_GENESIS   evo_genesis  + Genesis Plus GX
- *   -DEVO_RETRO_SNES      evo_snes     + Snes9x 2010
+ *   -DEVO_RETRO_GENESIS   ../evo_genesis   evo_genesis  + Genesis Plus GX
+ *   -DEVO_RETRO_SNES      ../evo_snes      evo_snes     + Snes9x 2010
  *
  * Every non-static symbol of the frontend starts with fe_ so it cannot collide with a
  * core's globals (the cores use plain names like `bitmap`, `config`, `input`).
@@ -32,7 +33,7 @@
 #  define SYS_ENV     "EVO_GENESIS"
 #  define SYS_GAIN    "/fs/sda1/evo/genesis_gain"
 #else
-#  error "define EVO_RETRO_GENESIS or EVO_RETRO_SNES (the Makefile does: make SYSTEM=...)"
+#  error "define EVO_RETRO_GENESIS or EVO_RETRO_SNES (retro.mk does, from the tile's SYSTEM)"
 #endif
 
 #define FE_W 1440           /* the panel */

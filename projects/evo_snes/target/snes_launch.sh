@@ -1,6 +1,6 @@
 #!/bin/sh
 # snes_launch.sh - homebrew launcher tile entry for the SNES emulator (evo_snes, see
-# projects/evo_retro).
+# projects/evo_snes).
 #
 # Deployed to /fs/sda1/evo/snes_launch.sh and referenced by launcher.manifest. The launcher
 # spawns us with no args; the binary is /fs/sda1/evo/evo_snes and your own ROM files

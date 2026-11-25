@@ -8,11 +8,13 @@
 #
 # Run one on the unit:  ./retro_bench_genesis game.bin 600 frame.raw
 #
-# The cores come from ../cores.sh (fetched at pinned commits, never committed).
+# The cores come from the tiles' core.sh scripts (fetched at pinned commits, never
+# committed).
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 R="$(cd "$HERE/../../.." && pwd)"
-"$HERE/../cores.sh" genesis snes snes2005
+"$HERE/../../evo_genesis/core.sh"
+"$HERE/../../evo_snes/core.sh" snes snes2005
 QNX_SDP="${QNX_SDP:-$HOME/qnx650_sdp/qnx650}"
 BU="$R/build/sdp-binutils"
 export QNX_HOST="$QNX_SDP/host/linux/x86" QNX_TARGET="$QNX_SDP/target/qnx6"

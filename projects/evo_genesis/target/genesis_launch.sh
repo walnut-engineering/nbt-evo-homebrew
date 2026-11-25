@@ -1,6 +1,6 @@
 #!/bin/sh
 # genesis_launch.sh - homebrew launcher tile entry for the Sega Genesis emulator (evo_genesis, see
-# projects/evo_retro).
+# projects/evo_genesis).
 #
 # Deployed to /fs/sda1/evo/genesis_launch.sh and referenced by launcher.manifest. The launcher
 # spawns us with no args; the binary is /fs/sda1/evo/evo_genesis and your own ROM files

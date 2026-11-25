@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Generate the SNES and Genesis tile icons (png preview + .rgba for the launcher).
+"""Generate the Genesis tile icon (png preview + .rgba for the launcher).
 
 Original art in the same panel style as the other tiles: a rounded gradient panel
-with a generic game-controller glyph. No logos, trademarks or console trade dress -
-a four-button pad for the one, a three-button pad for the other.
+with a generic game-controller glyph (a three-button pad). No logos, trademarks or console
+trade dress.
 
 .rgba format (what evo_launcher reads): [u32 LE w][u32 LE h][w*h * u32 LE 0xAARRGGBB]
 """
@@ -32,27 +32,6 @@ def glyph(draw_fn):
     big = Image.new("RGBA", (SIZE * SS, SIZE * SS), (0, 0, 0, 0))
     draw_fn(ImageDraw.Draw(big), lambda *v: [x * SS for x in v])
     return big.resize((SIZE, SIZE), Image.LANCZOS)
-
-def snes():
-    img = panel((0x3c, 0x34, 0x6e), (0x12, 0x10, 0x26))            # indigo panel
-    body, dark, btn = (0xd6, 0xd6, 0xde, 255), (0x2a, 0x2a, 0x34, 255), (0x8c, 0x7c, 0xd8, 255)
-    def draw(d, s):
-        # a long pad with round ends
-        d.ellipse(s(12, 46, 62, 96), fill=body)
-        d.ellipse(s(78, 46, 128, 96), fill=body)
-        d.rectangle(s(37, 50, 103, 92), fill=body)
-        # D-pad cross (left)
-        cx, cy = 37, 71
-        d.rectangle(s(cx - 5, cy - 14, cx + 5, cy + 14), fill=dark)
-        d.rectangle(s(cx - 14, cy - 5, cx + 14, cy + 5), fill=dark)
-        # two small pills (middle)
-        d.rounded_rectangle(s(58, 70, 67, 75), 2 * SS, fill=dark)
-        d.rounded_rectangle(s(72, 70, 81, 75), 2 * SS, fill=dark)
-        # four buttons in a diamond (right)
-        bx, by, r = 103, 71, 6
-        for dx, dy in ((0, -11), (11, 0), (0, 11), (-11, 0)):
-            d.ellipse(s(bx + dx - r, by + dy - r, bx + dx + r, by + dy + r), fill=btn)
-    return Image.alpha_composite(img, glyph(draw))
 
 def genesis():
     img = panel((0x2c, 0x2e, 0x36), (0x08, 0x08, 0x0c))            # near-black panel
@@ -88,5 +67,4 @@ def save(img, name):
             f.write(row)
     print("wrote", name + ".png /", name + ".rgba", f"({w}x{h})")
 
-save(snes(), "snes")
 save(genesis(), "genesis")

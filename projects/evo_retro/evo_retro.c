@@ -1,7 +1,8 @@
 /* evo_retro.c - a small libretro frontend for the NBT EVO head unit.
  *
- * One binary per system: this frontend linked statically with one emulator core
- * (cores.sh builds them; the Makefile picks one with SYSTEM=genesis|snes). The core
+ * One binary per system: this frontend linked statically with one emulator core.
+ * Each system is its own project folder (../evo_snes, ../evo_genesis) whose Makefile
+ * builds these sources through retro.mk and whose core.sh builds the core. The core
  * does the emulation behind the ten-function libretro interface; everything that
  * knows about the head unit is here and in the retro_*.c files beside it:
  *

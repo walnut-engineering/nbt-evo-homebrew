@@ -1,0 +1,10 @@
+# app.desc - registers the SNES emulator as a launcher tile.
+# The binary and its launch script live in /fs/sda1/evo; your own ROM files go in
+# /fs/sda1/evo/snes/. The script carries the audio library path. `make` here builds
+# the binary (and fetches the emulator core on the first build, see core.sh).
+name    = SNES
+exec    = snes_launch.sh
+icon    = snes.rgba
+order   = 17
+enabled = 1
+deploy  = bin/evo_snes target/snes_launch.sh
